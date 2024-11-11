@@ -1,0 +1,34 @@
+# Bytecode-Dateien
+__pycache__/
+*.py[cod]
+
+# Virtuelle Umgebungen
+venv/
+env/
+.venv/
+.env/
+
+# Distribution/Packaging
+build/
+dist/
+*.egg-info/
+
+# Log-Dateien
+*.log
+
+# Konfigurationsdateien für verschiedene IDEs
+.vscode/
+.idea/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# Python Test Cache
+.tox/
+.nox/
+
+# System-Dateien
+.DS_Store
+Thumbs.db
+
+Vid/

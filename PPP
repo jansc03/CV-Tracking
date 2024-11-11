@@ -1,0 +1,38 @@
+Einleitung
+6 Verfahren getestet und geranked (kein klarer gewinner)
+
+
+Videos
+->4
+->hintergrund
+->Klammoten
+->Lichtveränderung
+
+Annahmen
+
+-> Entfernung
+-> Bewegungsverhalten (Aufrecht gehen)
+-> Störfaktor (klein)
+-> Flackerndes Licht
+-> Stille Kamera
+-> Personenanzahl (max 4)
+
+Verfahren Besprechen
+MOG -> MOG2
+LSBP -> GSOC
+MOG -> CNT
+
+Bewertungskriterien
+-FPS                        3
+-Personen Erkennung         3           Richtig Person > Flascher Hintergrund
+-Hintergrund fehler         2
+-Lichtveränderung           1
+-Komplexität                1
+
+Rankings
+
+Finale Auswertung (Maybe TierList)
+
+
+
+
