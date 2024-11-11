@@ -67,7 +67,7 @@ clock = pygame.time.Clock()
 #cap = cv2.VideoCapture(0)
 
 #cap = cv2.VideoCapture("854204-hd_1920_1080_30fps.mp4")
-cap = cv2.VideoCapture("Vid/Vorne-Hinten.mp4")
+cap = cv2.VideoCapture("Vid/Schwer_weißer Hintergund mit weißen klamotten.mp4")
 
 
 
@@ -81,17 +81,17 @@ cap.set(cv2.CAP_PROP_FRAME_HEIGHT, screen.get_height())
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
 
 
-backSubMOG2 = cv2.createBackgroundSubtractorMOG2(history=200,detectShadows=False,varThreshold=32) # besseres MOG/mehr Parameter #Minimalistisch langsamer
-backSubMOG2.setNMixtures(5)                                                                      # oben Rechts
+backSubMOG2 = cv2.createBackgroundSubtractorMOG2(history=200,detectShadows=False,varThreshold=32)                    # besseres MOG/mehr Parameter #Minimalistisch langsamer
+backSubMOG2.setNMixtures(5)
 
-backSubKNN = cv2.createBackgroundSubtractorKNN(history=200,detectShadows=False,dist2Threshold=300.0) # unten Rechts
+
+backSubKNN = cv2.createBackgroundSubtractorKNN(history=200,detectShadows=False,dist2Threshold=300.0)                 # unten Rechts
 backSubCNT = cv2.bgsegm.createBackgroundSubtractorCNT(minPixelStability=10,useHistory=True,maxPixelStability=15*15)  #Besseres MOG # oben Links
-backSubGMG = cv2.bgsegm.createBackgroundSubtractorGMG(initializationFrames=60,decisionThreshold=0.8) #unten Links
-
-"""backSub = cv2.bgsegm.createBackgroundSubtractorGSOC(mc=10,nSamples=10,replaceRate=0.003,propagationRate=0.01,hitsThreshold=32,     #besseres LSBP
+backSubGMG = cv2.bgsegm.createBackgroundSubtractorGMG(initializationFrames=30,decisionThreshold=0.8)                 #unten Links
+backSubGSOC = cv2.bgsegm.createBackgroundSubtractorGSOC(mc=10,nSamples=10,replaceRate=0.003,propagationRate=0.01,hitsThreshold=32,     #besseres LSBP
                                                     alpha=0.01,beta=0.01,blinkingSupressionDecay=0.1,blinkingSupressionMultiplier=0.1,
-                                                   noiseRemovalThresholdFacBG=0.0004,noiseRemovalThresholdFacFG=0.008)"""
-#backSub = cv2.bgsegm.createBackgroundSubtractorLSBP(nSamples=10,mc=10)
+                                                   noiseRemovalThresholdFacBG=0.0004,noiseRemovalThresholdFacFG=0.008)
+backSubLSBP = cv2.bgsegm.createBackgroundSubtractorLSBP(nSamples=10,mc=10)
 
 # init player
 player = Player(screen.get_width()/2, screen.get_height()/2)
@@ -125,7 +125,9 @@ while running:
 
     if(cameraFrame is None):
         print(np.array(frames).mean())
-    fgMaskMOG2 = backSubMOG2.apply(cameraFrame)
+
+
+    """fgMaskMOG2 = backSubMOG2.apply(cameraFrame)
     fgMaskKNN = backSubKNN.apply(cameraFrame)
     fgMaskCNT = backSubCNT.apply(cameraFrame)
     fgMaskGMG = backSubGMG.apply(cameraFrame)
@@ -133,13 +135,33 @@ while running:
     vert2 = cv2.vconcat([fgMaskCNT, fgMaskGMG])
     fgMask = cv2.hconcat([vert1, vert2])
     fgMask = cv2.resize(fgMask, (screen.get_width(), screen.get_height()))
-    imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
+    imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)"""
 
-    """fgMask = backSubCNT.apply(cameraFrame)
+
+    #Alle
+    """fgMaskGSOC = backSubGSOC.apply(cameraFrame)
+    fgMaskLSBP = backSubLSBP.apply(cameraFrame)
+    fgMaskMOG2 = backSubMOG2.apply(cameraFrame)
+    fgMaskKNN = backSubKNN.apply(cameraFrame)
+    fgMaskCNT = backSubCNT.apply(cameraFrame)
+    fgMaskGMG = backSubGMG.apply(cameraFrame)
+    vert1 = cv2.vconcat([fgMaskMOG2, fgMaskKNN])
+    vert2 = cv2.vconcat([fgMaskCNT, fgMaskGMG])
+    vert3 = cv2.vconcat([fgMaskGSOC, fgMaskLSBP])
+    vert1 = cv2.resize(vert1, (int(screen.get_width() / 3), int(screen.get_height()*2/3)))
+    vert2 = cv2.resize(vert2, (int(screen.get_width() / 3), int(screen.get_height() * 2 / 3)))
+    vert3 = cv2.resize(vert3, (int(screen.get_width() / 3), int(screen.get_height() * 2 / 3)))
+    fgMask = cv2.hconcat([vert1, vert2])
+    fgMask = cv2.hconcat([fgMask, vert3])
+    imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)"""
+
+
+    #Single
+    fgMask = backSubMOG2.apply(cameraFrame)
     #ret, fgMask = cv2.threshold(cameraFrame,127,255,cv2.THRESH_BINARY)  #deleting shadows
     #fgMask = cv2.morphologyEx(fgMask, cv2.MORPH_OPEN, kernel, iterations=4)
-    foreground = cv2.bitwise_and(cameraFrame, cameraFrame, mask=fgMask)
-    imgRGB = cv2.cvtColor(foreground, cv2.COLOR_BGR2RGB)"""
+    #foreground = cv2.bitwise_and(cameraFrame, cameraFrame, mask=fgMask)
+    imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
 
     #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
     # image needs to be rotated for pygame
