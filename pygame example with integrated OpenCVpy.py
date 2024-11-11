@@ -115,6 +115,10 @@ while running:
                 running = False
             elif event.key==pygame.K_SPACE:
                 paused = not paused
+            elif event.key==pygame.K_LEFT:
+                skipTo = cap.get(cv2.CAP_PROP_POS_FRAMES)-20
+                cap.set(cv2.CAP_PROP_POS_FRAMES,skipTo)
+                print("skipped to Frame &f",skipTo)
             elif event.key==pygame.K_w:
                 backSubMOG2.setVarThreshold(backSubMOG2.getVarThreshold()+10)
             elif event.key==pygame.K_s:
@@ -122,7 +126,6 @@ while running:
 
     if not paused:
         #bilateral blur == slooooooooooooow
-
 
         # -- opencv & viz image
         ret, cameraFrame = cap.read()
