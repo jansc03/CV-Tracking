@@ -75,7 +75,8 @@ paused = False
 ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
 backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
+#backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=2)
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:

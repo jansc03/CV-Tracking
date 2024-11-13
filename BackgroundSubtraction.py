@@ -10,12 +10,12 @@ class BackgroundSubtraction:
     target_width = 1280  # Zielbreite
     target_height = 720  # Zielhöhe
 
-    backSubMOG2 = cv2.createBackgroundSubtractorMOG2(history=400, detectShadows=True, varThreshold=100)
+    backSubMOG2 = cv2.createBackgroundSubtractorMOG2(history=400, detectShadows=True, varThreshold=150)
     backSubMOG2.setNMixtures(5)
-    backSubMOG2.setBackgroundRatio(0.7)
+    backSubMOG2.setBackgroundRatio(0.75)
     backSubMOG2.setComplexityReductionThreshold(0.05)
-    backSubMOG2.setShadowThreshold(0.8)
-    backSubMOG2.setShadowValue(127)
+    backSubMOG2.setShadowThreshold(0.9)
+    backSubMOG2.setShadowValue(0)
     backSubMOG2.setVarInit(15)
 
     backSubKNN = cv2.createBackgroundSubtractorKNN(history=200, detectShadows=False, dist2Threshold=300.0)
@@ -31,18 +31,18 @@ class BackgroundSubtraction:
     backSubLSBP = cv2.bgsegm.createBackgroundSubtractorLSBP(nSamples=10, mc=10)
 
     # Hintergrundsubtraktor-Liste
-    backSubtractor = [backSubMOG2, backSubKNN, backSubCNT, backSubGMG, backSubGSOC, backSubLSBP]
+    backSubtractor = [backSubMOG2, backSubKNN, backSubCNT, backSubGSOC, backSubGMG, backSubLSBP]
 
     # Globale Variablen
     backSub = None
     videoSupplier = vs.VideoSupplier()
 
-    def initBackgroundSubtractor(self,backSubNum=0, multi=False):
+    def initBackgroundSubtractor(self,backSubNum=0, multi=False,vidNum = 0):
         self.backSub = self.backSubtractor[backSubNum]
         if multi:
             self.videoSupplier.getMultiVideo()
         else:
-            self.videoSupplier.getSingleVideo()
+            self.videoSupplier.getSingleVideo(vidNum)
 
     def getNextSingleBackground(self):
         cameraFrame = self.videoSupplier.getNextFrame()
