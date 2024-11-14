@@ -38,6 +38,7 @@ class BackgroundSubtraction:
     backSub = None
     videoSupplier = vs.VideoSupplier()
 
+    """Gibt den Nackground Subtractor Informationen welches vefahren getestet werden soll oder welches video genutzt werden soll bzw mehrere videos"""
     def initBackgroundSubtractor(self,backSubNum=0, multi=False,vidNum = 0):
         self.backSub = self.backSubtractor[backSubNum]
         if multi:
@@ -45,12 +46,14 @@ class BackgroundSubtraction:
         else:
             self.videoSupplier.getSingleVideo(vidNum)
 
+    """Eine Maske auf ein Video"""
     def getNextSingleBackground(self):
         cameraFrame = self.videoSupplier.getNextFrame()
         fgMask = self.backSub.apply(cameraFrame)
         return fgMask
 
 
+    """Mehrere Masken auf ein Video + Beschriftung"""
     def getNextCombinedBackground(self):
         cameraframe = self.videoSupplier.getNextFrame()
 
@@ -72,6 +75,7 @@ class BackgroundSubtraction:
 
         return combined_grid
 
+    """Ein Verfahren auf mehreren Videos"""
     def getNextMultipleBackground(self):
         cameraFrame = self.videoSupplier.getNextFrame()
         fgMask = self.backSub.apply(cameraFrame)

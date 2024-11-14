@@ -19,17 +19,21 @@ class VideoSupplier:
                 cap.release()
         self.caps.clear()
 
+    """Startet ein einzelnes Video Capture"""
     def getSingleVideo(self, vidNum=0):
         self.clear_caps()  # Schließt vorherige Videos
         cap = cv2.VideoCapture(self.vids[vidNum])
         self.caps.append(cap)
 
+    """Liefert mehrere Video Captures"""
     def getMultiVideo(self):
         self.clear_caps()  # Schließt vorherige Videos
         for vid in self.vids:
             cap = cv2.VideoCapture(vid)
             self.caps.append(cap)
 
+    """Liefert den nächsten Frame aus den einzelnen oder von den mehreren in einen 2x2 Frame
+    sollte ein Video schneller enden als andere wird für dieses ein schwarzes Bild erstellt"""
     def getNextFrame(self):
         frames = []
         if(len(self.caps) > 1):
