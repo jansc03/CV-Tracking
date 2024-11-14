@@ -18,7 +18,11 @@ class BackgroundSubtraction:
     backSubMOG2.setShadowValue(0)
     backSubMOG2.setVarInit(15)
 
-    backSubKNN = cv2.createBackgroundSubtractorKNN(history=200, detectShadows=False, dist2Threshold=300.0)
+    backSubKNN = cv2.createBackgroundSubtractorKNN(history=500, detectShadows=False,
+                                                   dist2Threshold=300.0)  # unten Rechts
+    backSubKNN.setNSamples(120)
+    backSubKNN.setkNNSamples(7)
+    backSubKNN.setShadowThreshold(60)
     backSubCNT = cv2.bgsegm.createBackgroundSubtractorCNT(minPixelStability=10, useHistory=True,
                                                           maxPixelStability=15 * 15)
     backSubGMG = cv2.bgsegm.createBackgroundSubtractorGMG(initializationFrames=60, decisionThreshold=0.9)
