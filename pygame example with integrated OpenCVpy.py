@@ -91,7 +91,7 @@ while running:
 
     if not paused:
         #bilateral blur == slooooooooooooow
-        background = backgroundSubtraction.getNextMultipleBackground()
+        background = backgroundSubtraction.getNextCombinedBackground()
 
         imgRGB = cv2.cvtColor(background, cv2.COLOR_BGR2RGB)
 

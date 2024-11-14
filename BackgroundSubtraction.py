@@ -32,6 +32,7 @@ class BackgroundSubtraction:
 
     # Hintergrundsubtraktor-Liste
     backSubtractor = [backSubMOG2, backSubKNN, backSubCNT, backSubGSOC, backSubGMG, backSubLSBP]
+    method_names = ["MOG2", "KNN", "CNT", "GSOC"]
 
     # Globale Variablen
     backSub = None
@@ -48,6 +49,28 @@ class BackgroundSubtraction:
         cameraFrame = self.videoSupplier.getNextFrame()
         fgMask = self.backSub.apply(cameraFrame)
         return fgMask
+
+
+    def getNextCombinedBackground(self):
+        cameraframe = self.videoSupplier.getNextFrame()
+
+        frame = cv2.resize(cameraframe, (self.target_width, self.target_height))
+
+        masks = []
+
+        for i in range(4):
+            mask = self.backSubtractor[i].apply(frame)
+            cv2.putText(mask, self.method_names[i], (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            mask = cv2.flip(mask, 1)
+            masks.append(mask)
+
+        top_row = np.hstack((masks[0], masks[1]))
+        bottom_row = np.hstack((masks[2], masks[3]))
+        combined_grid = np.vstack((top_row, bottom_row))
+
+        combined_grid = cv2.resize(combined_grid, (self.target_width, self.target_height))
+
+        return combined_grid
 
     def getNextMultipleBackground(self):
         cameraFrame = self.videoSupplier.getNextFrame()
