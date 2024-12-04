@@ -11,6 +11,7 @@ import cv2
 import pygame
 
 import BackgroundSubtraction as bs
+import Detector as dt
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
@@ -59,7 +60,7 @@ screen = pygame.display.set_mode(SCREEN)
 pygame.display.set_caption("Computer Vision Game")
 
 # init game clock
-fps = 300
+fps = 30
 clock = pygame.time.Clock()
 
 # init player
@@ -76,7 +77,11 @@ ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=2)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=0)
+
+detector = dt.Detector()
+
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -91,13 +96,21 @@ while running:
 
     if not paused:
         #bilateral blur == slooooooooooooow
-        background = backgroundSubtraction.getNextCombinedBackground()
+        background,originalVid = backgroundSubtraction.getNextSingleBackground()
 
-        imgRGB = cv2.cvtColor(background, cv2.COLOR_BGR2RGB)
+        people,allContours = detector.detect(background)
+
+
+        frame_out = originalVid.copy()
+        for x,y,w,h in people:
+            frame_out = cv2.rectangle(originalVid, (x, y), (x + w, y + h), (0, 0, 200), 3)
+
+        for x,y,w,h in allContours:
+            frame_out = cv2.rectangle(originalVid, (x, y), (x + w, y + h), (200, 0, 0), 3)
 
         #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
         # image needs to be rotated for pygame
-        imgRGB = np.rot90(imgRGB)
+        imgRGB = np.rot90(frame_out)
 
 
         # convert image to pygame and visualize
