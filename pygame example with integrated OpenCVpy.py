@@ -11,6 +11,8 @@ import cv2
 import pygame
 
 import BackgroundSubtraction as bs
+import Detector as dt
+import tracker as tr
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
@@ -59,7 +61,7 @@ screen = pygame.display.set_mode(SCREEN)
 pygame.display.set_caption("Computer Vision Game")
 
 # init game clock
-fps = 300
+fps = 30
 clock = pygame.time.Clock()
 
 # init player
@@ -76,7 +78,13 @@ ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=2)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=4)
+
+detector = dt.Detector()
+tracker = tr.Tracker(max_lost=90)
+
+
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -91,30 +99,47 @@ while running:
 
     if not paused:
         #bilateral blur == slooooooooooooow
-        background = backgroundSubtraction.getNextCombinedBackground()
+        background,original_vid = backgroundSubtraction.getNextSingleBackground()
 
-        imgRGB = cv2.cvtColor(background, cv2.COLOR_BGR2RGB)
+        people,all_contours = detector.detect(background)
+
+
+        frame_out = original_vid.copy()
+        for x,y,w,h in people:
+            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (0, 0, 200), 3)
+
+        for x,y,w,h in all_contours:
+            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
+
+        #tracker
+        tracker.update_track(people)
+        for track_id, track in tracker.get_active_tracks().items():
+            x, y, w, h = track["bbox"]
+            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
         # image needs to be rotated for pygame
-        imgRGB = np.rot90(imgRGB)
 
+        frame_out = cv2.cvtColor(frame_out, cv2.COLOR_BGR2RGB)
 
+        imgRGB = np.rot90(frame_out)
         # convert image to pygame and visualize
-        gameFrame = pygame.surfarray.make_surface(imgRGB).convert()
-        screen.blit(gameFrame, (0, 0))
+        game_frame = pygame.surfarray.make_surface(imgRGB).convert()
 
+        screen.blit(game_frame, (0, 0))
 
+        '''
         # -- update & draw object on screen
         player.update(pygame.key.get_pressed())
         screen.blit(player.surf, player.rect)
 
-
+        
         # -- add Text on screen (e.g. score)
         textFont = pygame.font.SysFont("arial", 26)
         textExample = textFont.render(f'Score: {gameScore}', True, (255, 0, 0))
         screen.blit(textExample, (20, 20))
-
+        '''
 
         # update entire screen
         pygame.display.update()

@@ -54,7 +54,7 @@ class BackgroundSubtraction:
     def getNextSingleBackground(self):
         cameraFrame = self.videoSupplier.getNextFrame()
         fgMask = self.backSub.apply(cameraFrame)
-        return fgMask
+        return fgMask,cameraFrame
 
 
     """Mehrere Masken auf ein Video + Beschriftung"""
