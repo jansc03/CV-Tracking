@@ -4,10 +4,14 @@ import cv2
 class VideoSupplier:
     def __init__(self):
         self.vids = [
-            "Vid/Links-Rechts bewegung mit Helligkeitsunterschied.mp4",
-            "Vid/Schwer_weißer Hintergund mit weißen klamotten.mp4",
-            "Vid/WIN_20241113_14_28_28_Pro.mp4",
-            "Vid/film.mov"
+            "Vid/daraussen.mp4",
+            "Vid/gegenlicht.mp4",
+            "Vid/gegenlicht_und_spiegel.mp4",
+            "Vid/gehend_zwei.mp4",
+            "Vid/schnell.mp4",
+            "Vid/spiegel.mp4",
+            "Vid/winkel.mp4",
+            "Vid/stoerung.mp4"
         ]
         self.caps = []  # Liste der VideoCapture-Objekte
         self.target_width = 1280  # Zielbreite
@@ -34,9 +38,10 @@ class VideoSupplier:
 
     """Liefert den nächsten Frame aus den einzelnen oder von den mehreren in einen 2x2 Frame
     sollte ein Video schneller enden als andere wird für dieses ein schwarzes Bild erstellt"""
+
     def getNextFrame(self):
         frames = []
-        if(len(self.caps) > 1):
+        if len(self.caps) > 1:
             for cap in self.caps:
                 ret, frame = cap.read()
                 if ret:
@@ -52,8 +57,10 @@ class VideoSupplier:
             bottom_row = np.hstack((frames[2], frames[3]))
             grid_frame = np.vstack((top_row, bottom_row))
         else:
+            grid_frame = np.zeros((self.target_height, self.target_width, 3), dtype=np.uint8)  # Standardwert
             for cap in self.caps:
                 ret, frame = cap.read()
                 if ret:
                     grid_frame = cv2.resize(frame, (self.target_width, self.target_height))
+
         return grid_frame

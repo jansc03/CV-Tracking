@@ -9,6 +9,7 @@ class Detector:
         return
 
     def detect(self, bgImg):
+        bgImg = cv2.GaussianBlur(bgImg, (5, 5), 0)
         mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, self.kernel, iterations=2)
         mask_eroded = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, self.kernel, iterations=2)
 
@@ -17,20 +18,23 @@ class Detector:
         people = self._filter(contours)
         return people
 
-    def _filter(self, contours):
+    def _filter(self, contours, padding=20):
         low_potential_contour_area = 1000
         min_contour_area = 10000
-        max_contour_area = 50000
+        max_contour_area = 500000
 
-        all_contours = [cv2.boundingRect(cnt) for cnt in contours if max_contour_area > cv2.contourArea(cnt) > low_potential_contour_area]
+        all_contours = [cv2.boundingRect(cnt) for cnt in contours if
+                        max_contour_area > cv2.contourArea(cnt) > low_potential_contour_area]
 
-        contour = [cv2.boundingRect(cnt) for cnt in contours if max_contour_area > cv2.contourArea(cnt) > min_contour_area]
+        contour = [cv2.boundingRect(cnt) for cnt in contours if
+                   max_contour_area > cv2.contourArea(cnt) > min_contour_area]
 
-        potentialParts = [cv2.boundingRect(cnt) for cnt in contours if min_contour_area > cv2.contourArea(cnt) > low_potential_contour_area]
+        potentialParts = [cv2.boundingRect(cnt) for cnt in contours if
+                          min_contour_area > cv2.contourArea(cnt) > low_potential_contour_area]
 
         for pp in potentialParts:
             for cp in contour:
-                if self.is_close_or_overlap(pp,cp):
+                if self.is_close_or_overlap(pp, cp):
                     merge = (np.array(pp), np.array(cp))
                     print(merge)
                     contour.append(self.merge_bounding_boxes(merge))
@@ -38,13 +42,16 @@ class Detector:
         potentialPerson = []
 
         for x, y, w, h in contour:
-            if(w<h/2):
-                potentialPerson.append((x,y,w,h))
+            if w < h :
+                # Padding hinzufügen
+                x_padded = max(x - padding, 0)
+                y_padded = max(y - padding, 0)
+                w_padded = w + 2 * padding
+                h_padded = h + 2 * padding
 
+                potentialPerson.append((x_padded, y_padded, w_padded, h_padded))
 
-
-
-        return potentialPerson,all_contours
+        return potentialPerson, all_contours
 
     # Kombiniert 2 BoundingBoxen
     def merge_bounding_boxes(self,bboxes):
@@ -56,7 +63,7 @@ class Detector:
         return x_min, y_min, x_max - x_min, y_max - y_min
 
     # Funktion zur Prüfung, ob zwei BoundingBoxen überlappen oder nahe beieinanderliegen
-    def is_close_or_overlap(self,bbox1, bbox2, threshold=100):
+    def is_close_or_overlap(self,bbox1, bbox2, threshold=200):
         x1, y1, w1, h1 = bbox1
         x2, y2, w2, h2 = bbox2
 
@@ -70,5 +77,3 @@ class Detector:
                 y2 + h2 < extended_bbox1[1] or  # bbox2 unterhalb von bbox1
                 y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
         )
-
-
