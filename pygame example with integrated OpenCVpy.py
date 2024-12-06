@@ -78,7 +78,7 @@ ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=4)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=8)
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)

@@ -2,11 +2,12 @@ import cv2
 import numpy as np
 
 class Tracker:
-    def __init__(self, max_lost = 30, activation_frames=60):
+    def __init__(self, max_lost = 30, activation_frames=60, max_tracks = 1):
         self.next_id=0
         self.tracks={}
         self.max_lost = max_lost
         self.activation_frames = activation_frames
+        self.max_tracks = max_tracks
 
     def add_track(self, bbox):
         self.tracks[self.next_id] = {
@@ -37,8 +38,9 @@ class Tracker:
                         track["active"] = True  # Aktiviere den Track
                     assigned = True
                     break
-            if not assigned:
+            if not assigned and len(self.tracks) < self.max_tracks:
                 self.add_track(det)
+
 
     def is_close(self, bbox1, bbox2, distance_threshold=200):
         x1, y1, w1, h1 = bbox1

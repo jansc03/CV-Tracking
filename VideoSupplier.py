@@ -4,14 +4,17 @@ import cv2
 class VideoSupplier:
     def __init__(self):
         self.vids = [
-            "Vid/daraussen.mp4",
-            "Vid/gegenlicht.mp4",
-            "Vid/gegenlicht_und_spiegel.mp4",
-            "Vid/gehend_zwei.mp4",
-            "Vid/schnell.mp4",
-            "Vid/spiegel.mp4",
-            "Vid/winkel.mp4",
-            "Vid/stoerung.mp4"
+            "Vid/daraussen.mp4",                      #0
+            "Vid/gegenlicht.mp4",                     #1
+            "Vid/gegenlicht_und_spiegel.mp4",         #2
+            "Vid/gehend_zwei.mp4",                    #3
+            "Vid/schnell.mp4",                        #4
+            "Vid/spiegel.mp4",                        #5
+            "Vid/winkel.mp4",                         #6
+            "Vid/stoerung.mp4",                       #7
+            "Vid/2personen.mp4",                      #8
+            "Vid/2personen_verdeckt.mp4"              #9
+
         ]
         self.caps = []  # Liste der VideoCapture-Objekte
         self.target_width = 1280  # Zielbreite
