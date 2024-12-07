@@ -5,11 +5,11 @@ import cv2
 
 class Detector:
     def __init__(self):
-        self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
         return
 
     def detect(self, bgImg):
-        bgImg = cv2.GaussianBlur(bgImg, (5, 5), 0)
+        bgImg = cv2.GaussianBlur(bgImg, (5, 5), 2)
         mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, self.kernel, iterations=2)
         mask_eroded = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, self.kernel, iterations=2)
 
@@ -19,7 +19,7 @@ class Detector:
         return people
 
     def _filter(self, contours, padding=20):
-        low_potential_contour_area = 1000
+        low_potential_contour_area = 5000
         min_contour_area = 10000
         max_contour_area = 500000
 
@@ -41,6 +41,12 @@ class Detector:
                     contour.remove(cp)
         potentialPerson = []
 
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+            aspect_ratio = float(w) / h
+            if 0.2 < aspect_ratio < 1.0 and cv2.contourArea(cnt) > min_contour_area:
+                potentialPerson.append((x - padding, y - padding, w + 2 * padding, h + 2 * padding))
+
         for x, y, w, h in contour:
             if w < h :
                 # Padding hinzufügen
@@ -53,14 +59,16 @@ class Detector:
 
         return potentialPerson, all_contours
 
+
     # Kombiniert 2 BoundingBoxen
-    def merge_bounding_boxes(self,bboxes):
-        print(bboxes)
+    def merge_bounding_boxes(self, bboxes):
         x_min = min([bbox[0] for bbox in bboxes])
         y_min = min([bbox[1] for bbox in bboxes])
         x_max = max([bbox[0] + bbox[2] for bbox in bboxes])
         y_max = max([bbox[1] + bbox[3] for bbox in bboxes])
         return x_min, y_min, x_max - x_min, y_max - y_min
+
+
 
     # Funktion zur Prüfung, ob zwei BoundingBoxen überlappen oder nahe beieinanderliegen
     def is_close_or_overlap(self,bbox1, bbox2, threshold=200):
@@ -77,3 +85,10 @@ class Detector:
                 y2 + h2 < extended_bbox1[1] or  # bbox2 unterhalb von bbox1
                 y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
         )
+
+    def extract_person_areas(self,frame, people):
+        person_areas = []
+        for x, y, w, h in people:
+            person_area = frame[y:y + h, x:x + w]  # Ausschneiden des Bereichs
+            person_areas.append(person_area)
+        return person_areas
