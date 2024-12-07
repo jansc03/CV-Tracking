@@ -13,9 +13,11 @@ class VideoSupplier:
             "Vid/winkel.mp4",                         #6
             "Vid/stoerung.mp4",                       #7
             "Vid/2personen.mp4",                      #8
-            "Vid/2personen_verdeckt.mp4"              #9
-
+            "Vid/2personen_verdeckt.mp4",             #9
+            "Vid/autos.mov",                          #10
+            "Vid/autos2.mp4"                          #11
         ]
+
         self.caps = []  # Liste der VideoCapture-Objekte
         self.target_width = 1280  # Zielbreite
         self.target_height = 720   # Zielhöhe
