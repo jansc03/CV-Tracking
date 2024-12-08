@@ -15,7 +15,8 @@ class VideoSupplier:
             "Vid/2personen.mp4",                      #8
             "Vid/2personen_verdeckt.mp4",             #9
             "Vid/autos.mov",                          #10
-            "Vid/autos2.mp4"                          #11
+            "Vid/autos2.mp4",                          #11
+            "Vid/Schwer_weißer Hintergund mit weißen klamotten.mp4" #12
         ]
 
         self.caps = []  # Liste der VideoCapture-Objekte

@@ -79,7 +79,7 @@ blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=0)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=9)
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)
@@ -107,28 +107,31 @@ while running:
 
         person_areas = detector.extract_person_areas(original_vid, people)
 
-        """
+
         for x,y,w,h in people:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
 
         
         for x,y,w,h in all_contours:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
-        """
+
 
         #tracker
         tracker.update_track(people)
 
         # Optischen Fluss anwenden, wenn vorheriger Frame existiert
-        if previous_frame is not None:
-            tracker.refine_tracks_with_optical_flow(frame_out, previous_frame)
+        #if previous_frame is not None:
+        #    tracker.refine_tracks_with_optical_flow(frame_out, previous_frame)
 
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
 
         # Tracks visualisieren
         for track_id, track in tracker.get_active_tracks().items():
-            x, y, w, h = track["bbox"]
+            if(track["lost"]>0):
+                x, y, w, h = track["prediction"]
+            else:
+                x, y, w, h = track["bbox"]
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 

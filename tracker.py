@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import KalmanFilter
 
 class Tracker:
     def __init__(self, max_lost=30, activation_frames=60, max_tracks=1, height_smoothing=20, smoothing_window=5):
@@ -19,7 +20,10 @@ class Tracker:
             "lost": 0,
             "stable_frames": 0,
             "active": False,
-            "height_history": []
+            "height_history": [],
+            "center_predicter":KalmanFilter.KalmanFilter(),
+            "prediction" : tuple([0,0,0,0]),
+            "previous_center":tuple([0,0])
         }
         self.smoothing_buffers[track_id] = []
         self.next_id += 1
@@ -48,19 +52,18 @@ class Tracker:
 
         self.tracks = update_tracks
 
-        for det in detections:
-            assigned = False
-            for track_id, track in self.tracks.items():
-                if self.is_close(track["bbox"], det):
+        for track_id, track in self.tracks.items():
+            for det in detections:
+                if self.is_close(track["bbox"], det) or self.is_close(track["prediction"], det):
                     track["bbox"] = det
                     track["lost"] = 0
-                    track["stable_frames"] += 1  # Erhöhe stabile Frames
+                    track["stable_frames"] += 1
                     if track["stable_frames"] >= self.activation_frames:
-                        track["active"] = True  # Aktiviere den Track
-                    assigned = True
+                        track["active"] = True
                     break
-            if not assigned and len(self.tracks) < self.max_tracks:
-                self.add_track(det)
+            self.predict_future_bbox(track)
+        if len(self.tracks) < self.max_tracks and len(detections) > 0:
+            self.add_track(detections[0])
 
 
     def is_close(self, bbox1, bbox2, distance_threshold=200):
@@ -110,3 +113,64 @@ class Tracker:
                 #Glätten
                 smoothed_bbox = self.apply_smoothing(track_id, track["bbox"])
                 track["bbox"] = smoothed_bbox
+
+
+    def predict_future_bbox(self,track):
+        if(track["lost"] < 1):
+            track_bbox = track["bbox"]
+
+            bbox_width = track_bbox[2]
+            bbox_height = track_bbox[3]
+
+            predicted_center = track["center_predicter"].predict(
+                track_bbox[0] + track_bbox[2] // 2,
+                track_bbox[1] + track_bbox[3] // 2
+            )
+
+            new_bbox_x = int(predicted_center[0] - bbox_width // 2)
+            new_bbox_y = int(predicted_center[1] - bbox_height // 2)
+            new_bbox_width = bbox_width
+            new_bbox_height = bbox_height
+
+            track["prediction"] = (new_bbox_x, new_bbox_y, new_bbox_width, new_bbox_height)
+        else:
+            track_prediction = track["prediction"]
+            track_last_bbox_size = track["bbox"]
+
+            bbox_width = track_last_bbox_size[2]
+            bbox_height = track_last_bbox_size[3]
+
+            predicted_center = track["center_predicter"].predict(
+                track_prediction[0] + bbox_width // 2,
+                track_prediction[1] + bbox_height // 2
+            )
+
+            new_bbox_x = int(predicted_center[0] - bbox_width // 2)
+            new_bbox_y = int(track_prediction[1] - bbox_height // 2)
+
+            track["prediction"] = (new_bbox_x, track_prediction[1], bbox_width, bbox_height)
+        print(track["prediction"])
+
+
+    def simple_future_box_prediction(self,track):
+        if (track["lost"] < 1):
+            track_bbox = track["bbox"]
+        else:
+            track_bbox = track["prediction"]
+
+        bbox_width = track_bbox[2]
+        bbox_height = track_bbox[3]
+        bbox_center_x = track_bbox[0] + bbox_width // 2
+        bbox_center_y = track_bbox[1] + bbox_height // 2
+
+        predicted_center = [bbox_center_x + (bbox_center_x - track["previous_center"][0]),bbox_center_y]
+
+        new_bbox_x = int(predicted_center[0] - bbox_width // 2)
+        new_bbox_y = int(predicted_center[1] - bbox_height // 2)
+        new_bbox_width = bbox_width
+        new_bbox_height = bbox_height
+
+        track["previous_center"] = [bbox_center_x,bbox_center_y]
+        track["prediction"] = (new_bbox_x, new_bbox_y, new_bbox_width, new_bbox_height)
+
+
