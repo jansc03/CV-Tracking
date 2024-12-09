@@ -10,43 +10,16 @@ import numpy as np
 import cv2
 import pygame
 
-import BackgroundSubtraction as bs
-import Detector as dt
+import background_subtraction as bs
+import detector as dt
 import tracker as tr
 import entity
+import player as Player
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
 SCREEN 	      = [SCREEN_WIDTH,SCREEN_HEIGHT]
 
-
-# --------------------------------------------------------------------------
-# -- player class
-# --------------------------------------------------------------------------
-class Player(pygame.sprite.Sprite):
-    # -----------------------------------------------------------
-    # init class
-    def __init__(self, posX, posY):
-        super(Player, self).__init__()
-        self.surf = pygame.Surface((100, 30))
-        # fill with color
-        self.surf.fill((0, 0, 255))
-        self.rect = self.surf.get_rect()
-        # start at screen center
-        self.rect.x = posX
-        self.rect.y = posY
-
-    # -----------------------------------------------------------
-	# update player rectangle
-    def update(self, keys):
-        if keys[pygame.K_UP]:
-            self.rect.y -=5
-        if keys[pygame.K_DOWN]:
-            self.rect.y +=5
-        if keys[pygame.K_LEFT]:
-            self.rect.x -=5
-        if keys[pygame.K_RIGHT]:
-            self.rect.x +=5
 
 
 
@@ -64,11 +37,8 @@ pygame.display.set_caption("Computer Vision Game")
 # init game clock
 fps = 30
 clock = pygame.time.Clock()
-
-# init player
-player = Player(screen.get_width()/2, screen.get_height()/2)
-
-moving_entity = entity.MovingEntity(x=0, y=0, width=100, height=30, speed=5, row_height=50, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
+player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
+moving_entity = entity.MovingEntity(x=0, y=0, width=100, height=30, speed=5, row_height=300, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
 
 # example variable for game score
 gameScore = 0
@@ -80,6 +50,9 @@ paused = False
 ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
+collision_check_timer = 0
+collision_check_interval = 500
+
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
 backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=8)
@@ -127,10 +100,6 @@ while running:
         #tracker
         tracker.update_track(people,person_areas)
 
-        # Optischen Fluss anwenden, wenn vorheriger Frame existiert
-        #if previous_frame is not None:
-            #tracker.refine_tracks_with_optical_flow(frame_out, previous_frame)
-
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
 
@@ -143,7 +112,7 @@ while running:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-
+            player.update_position(x, y, w, h)
 
         #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
         # image needs to be rotated for pygame
@@ -170,21 +139,25 @@ while running:
             
         """
 
-        '''
-        # -- update & draw object on screen
-        player.update(pygame.key.get_pressed())
-        screen.blit(player.surf, player.rect)
+        'GAME'
+        current_time = pygame.time.get_ticks()
+        if current_time - collision_check_timer >= collision_check_interval:
+            collision_check_timer = current_time
+            if player.rect.colliderect(moving_entity.rect) and frame_out is not None:
+                player.lose_life()
+                print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
 
-        
-        # -- add Text on screen (e.g. score)
-        textFont = pygame.font.SysFont("arial", 26)
-        textExample = textFont.render(f'Score: {gameScore}', True, (255, 0, 0))
-        screen.blit(textExample, (20, 20))
-        '''
+        # Lebensanzeige oben links
+        player.draw_lives(screen, player.lives)
+
+        # Prüfen, ob der Spieler noch lebt
+        if not player.is_alive():
+            print("Spieler 1 hat alle Leben verloren! Spiel beendet.")
+            running = False
 
         moving_entity.update()
         moving_entity.draw(screen)
-
+        player.draw(screen)
         # update entire screen
         pygame.display.update()
         # set clock

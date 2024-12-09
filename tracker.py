@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import KalmanFilter
+import kalman_filter
 
 class Tracker:
     def __init__(self, max_lost=30, activation_frames=30, max_tracks=1, height_smoothing=20, smoothing_window=4):
@@ -21,7 +21,7 @@ class Tracker:
             "stable_frames": 0,
             "active": False,
             "height_history": [],
-            "center_predicter":KalmanFilter.KalmanFilter(),
+            "center_predicter":kalman_filter.KalmanFilter(),
             "prediction" : tuple([0,0,0,0]),
             "previous_center":tuple([0,0]),
             "histogram":[hist]

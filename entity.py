@@ -1,12 +1,10 @@
 import pygame
-from pygame.examples.scrap_clipboard import screen
 
-
-class MovingEntity(pygame.sprite.Sprite):
+class MovingEntity:
     def __init__(self, x, y, width, height, speed, row_height, SCREEN_WIDTH, SCREEN_HEIGHT):
         super(MovingEntity, self).__init__()
         self.surf = pygame.Surface((width, height))
-        self.surf.fill((255, 0, 0))  # Rote Farbe
+        self.surf.fill((255, 0, 0))
         self.rect = self.surf.get_rect(topleft=(x, y))
         self.speed = speed
         self.row_height = row_height
@@ -33,3 +31,6 @@ class MovingEntity(pygame.sprite.Sprite):
 
     def draw(self, surface):
         surface.blit(self.surf, self.rect)
+
+    def get_position(self):
+        return self.rect.x, self.rect.y
