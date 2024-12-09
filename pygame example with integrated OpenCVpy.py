@@ -13,6 +13,7 @@ import pygame
 import BackgroundSubtraction as bs
 import Detector as dt
 import tracker as tr
+import entity
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
@@ -67,6 +68,8 @@ clock = pygame.time.Clock()
 # init player
 player = Player(screen.get_width()/2, screen.get_height()/2)
 
+moving_entity = entity.MovingEntity(x=0, y=0, width=100, height=30, speed=5, row_height=50, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
+
 # example variable for game score
 gameScore = 0
 
@@ -79,7 +82,7 @@ blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=12)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=8)
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)
@@ -178,6 +181,9 @@ while running:
         textExample = textFont.render(f'Score: {gameScore}', True, (255, 0, 0))
         screen.blit(textExample, (20, 20))
         '''
+
+        moving_entity.update()
+        moving_entity.draw(screen)
 
         # update entire screen
         pygame.display.update()
