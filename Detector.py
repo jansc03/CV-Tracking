@@ -9,11 +9,8 @@ class Detector:
         return
 
     def detect(self, bgImg):
-        bgImg = cv2.GaussianBlur(bgImg, (5, 5), 2)
-        mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, self.kernel, iterations=2)
-        mask_eroded = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, self.kernel, iterations=2)
 
-        contours, hierarchy = cv2.findContours(mask_eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(bgImg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         people = self._filter(contours)
         return people
@@ -44,7 +41,7 @@ class Detector:
         for cnt,cnt_area in contour:
             x, y, w, h = cnt
             aspect_ratio = float(w) / h
-            if 0.2 < aspect_ratio < 1.0 and cnt_area > min_contour_area:
+            if 0.2 < aspect_ratio < 1.3 and cnt_area > min_contour_area:
                 potentialPerson.append((x - padding, y - padding, w + 2 * padding, h + 2 * padding))
 
         return potentialPerson, all_contours
@@ -76,7 +73,7 @@ class Detector:
                 y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
         )
 
-    def extract_person_areas(self,frame, people):
+    def extract_person_areas(self,frame,backframe, people):
         person_areas = []
         height, width, _ = frame.shape
 
@@ -88,7 +85,9 @@ class Detector:
 
             if (x_end > x_start) and (y_end > y_start):
                 person_area = frame[y_start:y_end, x_start:x_end, :]
+                person_background_area = backframe[y_start:y_end, x_start:x_end]
                 if person_area.size > 0:
-                    person_areas.append(person_area)
-
+                    person_background_area = cv2.cvtColor(person_background_area, cv2.COLOR_GRAY2BGR)
+                    person = cv2.bitwise_and(person_area,person_background_area)
+                    person_areas.append(person)
         return person_areas

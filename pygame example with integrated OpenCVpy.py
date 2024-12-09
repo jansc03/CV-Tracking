@@ -83,6 +83,7 @@ backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=1
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
 
 
 
@@ -101,12 +102,17 @@ while running:
     if not paused:
         #bilateral blur == slooooooooooooow
         background,original_vid = backgroundSubtraction.getNextSingleBackground()
+        bgImg = cv2.GaussianBlur(background, (5, 5), 2)
+        mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, kernel, iterations=2)
+        background = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=2)
 
         people,all_contours = detector.detect(background)
 
         frame_out = original_vid.copy()
 
-        person_areas = detector.extract_person_areas(original_vid, people)
+        person_areas = detector.extract_person_areas(original_vid,background, people)
+        """if len(person_areas)>0:
+            cv2.imshow("Frame", person_areas[0])"""
 
 
         """if len(person_areas) > 0 and person_areas[0].size > 0:
@@ -117,8 +123,8 @@ while running:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
 
         
-        for x,y,w,h in all_contours:
-            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
+        """for x,y,w,h in all_contours:
+            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)"""
 
 
         #tracker

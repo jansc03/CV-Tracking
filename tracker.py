@@ -54,7 +54,7 @@ class Tracker:
         for track_id, track in self.tracks.items():
             possible = []
             for det,det_area in zip(detections,detection_areas):
-                if self.is_close(track["bbox"], det) or self.is_close(track["prediction"], det):
+                if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
                     det_hist = self.get_hist(det_area)
                     cmp = self.compare_histogramm(det_hist,track)
                     print("pre",cmp)
@@ -70,7 +70,7 @@ class Tracker:
                 track["bbox"] = det
                 track["lost"] = 0
                 track["stable_frames"] += 1
-                if not bundle and cmp > 0.8:
+                if not bundle and cmp > 0.80:
                     self.add_histogramm(det_hist, track)
                 if track["stable_frames"] >= self.activation_frames:
                     track["active"] = True
@@ -86,7 +86,7 @@ class Tracker:
         if len(track["histogram"])>=20:
             track["histogram"].pop(0)
 
-    def compare_histogramm(self,det_area_hist,track):      #0.67 - 68
+    def compare_histogramm(self,det_area_hist,track):
         val = []
         for det_hist,track_hist in zip(det_area_hist,np.mean(track["histogram"],axis=0)):
             val.append(cv2.compareHist(det_hist,track_hist,cv2.HISTCMP_CORREL))
@@ -96,6 +96,12 @@ class Tracker:
         hist_b = cv2.calcHist([segment], [0], None, [127], [1, 256])
         hist_g = cv2.calcHist([segment], [1], None, [127], [1, 256])
         hist_r = cv2.calcHist([segment], [2], None, [127], [1, 256])
+        hist_b[0] = 0
+        hist_g[0] = 0
+        hist_r[0] = 0
+        cv2.normalize(hist_b,hist_b,0,255,cv2.NORM_MINMAX)
+        cv2.normalize(hist_g,hist_g,0,255,cv2.NORM_MINMAX)
+        cv2.normalize(hist_r,hist_r,0,255,cv2.NORM_MINMAX)
 
         return [hist_b, hist_g, hist_r]
 
@@ -207,3 +213,17 @@ class Tracker:
         track["prediction"] = (new_bbox_x, new_bbox_y, new_bbox_width, new_bbox_height)
 
 
+    def is_close_or_overlap(self,bbox1, bbox2, threshold=50):
+        x1, y1, w1, h1 = bbox1
+        x2, y2, w2, h2 = bbox2
+
+        # Rechtecke erweitern (Threshold) für "Nähe"
+        extended_bbox1 = (x1 - threshold, y1 - 2*threshold, w1 + 2 * threshold, h1 + 4 * threshold)
+
+        # Prüfen, ob bbox2 innerhalb der erweiterten bbox1 liegt
+        return not (
+                x2 + w2 < extended_bbox1[0] or  # bbox2 rechts von bbox1
+                x2 > extended_bbox1[0] + extended_bbox1[2] or  # bbox2 links von bbox1
+                y2 + h2 < extended_bbox1[1] or  # bbox2 unterhalb von bbox1
+                y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
+        )
