@@ -57,16 +57,16 @@ class Tracker:
                 if self.is_close(track["bbox"], det) or self.is_close(track["prediction"], det):
                     det_hist = self.get_hist(det_area)
                     cmp = self.compare_histogramm(det_hist,track)
-                    print("pre",cmp)
+                    #print("pre",cmp)
                     bundle = det[2]>det[3]/1.5
                     if cmp > 0.6 or bundle:
                         possible.append((det,cmp,bundle,det_hist))
 
             if len(possible) > 0:
-                print("match")
+                #print("match")
                 pos = max(possible,key=lambda x: x[1])
                 det,cmp,bundle,det_hist = pos
-                print("after",cmp)
+               # print("after",cmp)
                 track["bbox"] = det
                 track["lost"] = 0
                 track["stable_frames"] += 1

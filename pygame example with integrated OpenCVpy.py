@@ -112,6 +112,8 @@ while running:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
+            print("TRACKER", (" X:"),x,(" Y:"),y)
+
             player.update_position(x, y, w, h)
 
         #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
@@ -122,6 +124,8 @@ while running:
         img_rgb = np.rot90(frame_out)
 
         # convert image to pygame and visualize
+
+        img_rgb = np.flip(img_rgb,axis=0)
 
         game_frame = pygame.surfarray.make_surface(img_rgb).convert()
 

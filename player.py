@@ -1,7 +1,7 @@
 import pygame
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, posX, posY, width=0, height=0, screen_w=1280, lives=3):
+    def __init__(self, posX, posY, width=0, height=0, screen_w=0, lives=3):
         super(Player, self).__init__()
         self.screen_width = screen_w
         self.width = width
@@ -18,9 +18,10 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = y
         self.rect.width = w
         self.rect.height = h
-        self.rect.x = self.screen_width - (x - w)
+        self.rect.x = x
         self.surf = pygame.Surface((w, h), pygame.SRCALPHA)
         self.surf.fill((0, 0, 255, 100))
+        print("RECT", (" X:"),self.rect.x, (" Y:"),self.rect.y)
 
     def flip_horizontally(self):
         """Flippt den Spieler horizontal."""
