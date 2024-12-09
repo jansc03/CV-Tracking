@@ -21,7 +21,6 @@ class Player(pygame.sprite.Sprite):
         self.rect.x = x
         self.surf = pygame.Surface((w, h), pygame.SRCALPHA)
         self.surf.fill((0, 0, 255, 100))
-        print("RECT", (" X:"),self.rect.x, (" Y:"),self.rect.y)
 
     def flip_horizontally(self):
         """Flippt den Spieler horizontal."""

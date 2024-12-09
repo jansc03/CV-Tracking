@@ -38,7 +38,7 @@ pygame.display.set_caption("Computer Vision Game")
 fps = 30
 clock = pygame.time.Clock()
 player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
-moving_entity = entity.MovingEntity(x=0, y=0, width=100, height=30, speed=5, row_height=300, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
+moving_entity = entity.MovingEntity(x=0, y=0, width=100, height=30, speed=5, row_height=50, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
 
 # example variable for game score
 gameScore = 0
@@ -59,8 +59,6 @@ backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=8
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)
-
-
 
 while running:
     for event in pygame.event.get():
@@ -96,7 +94,6 @@ while running:
         for x,y,w,h in all_contours:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
 
-
         #tracker
         tracker.update_track(people,person_areas)
 
@@ -111,8 +108,6 @@ while running:
                 x, y, w, h = track["bbox"]
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-            print("TRACKER", (" X:"),x,(" Y:"),y)
 
             player.update_position(x, y, w, h)
 
