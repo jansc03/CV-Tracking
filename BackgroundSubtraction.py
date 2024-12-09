@@ -14,7 +14,7 @@ class BackgroundSubtraction:
     backSubMOG2.setNMixtures(5)
     backSubMOG2.setBackgroundRatio(0.75)
     backSubMOG2.setComplexityReductionThreshold(0.05)
-    backSubMOG2.setShadowThreshold(0.9)
+    backSubMOG2.setShadowThreshold(0.8)
     backSubMOG2.setShadowValue(0)
     backSubMOG2.setVarInit(15)
 

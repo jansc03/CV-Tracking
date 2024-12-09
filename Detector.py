@@ -13,13 +13,15 @@ class Detector:
         mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, self.kernel, iterations=2)
         mask_eroded = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, self.kernel, iterations=2)
 
+        cv2.imshow("back",mask_eroded)
+
         contours, hierarchy = cv2.findContours(mask_eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         people = self._filter(contours)
         return people
 
     def _filter(self, contours, padding=20):
-        low_potential_contour_area = 5000
+        low_potential_contour_area = 1000
         min_contour_area = 10000
         max_contour_area = 500000
 
@@ -36,15 +38,14 @@ class Detector:
             for cp in contour:
                 if self.is_close_or_overlap(pp, cp):
                     merge = (np.array(pp), np.array(cp))
-                    print(merge)
                     contour.append(self.merge_bounding_boxes(merge))
                     contour.remove(cp)
         potentialPerson = []
 
-        for cnt in contours:
-            x, y, w, h = cv2.boundingRect(cnt)
+        for cnt in contour:
+            x, y, w, h = cnt
             aspect_ratio = float(w) / h
-            if 0.2 < aspect_ratio < 1.0 and cv2.contourArea(cnt) > min_contour_area:
+            if 0.2 < aspect_ratio < 1.0:
                 potentialPerson.append((x - padding, y - padding, w + 2 * padding, h + 2 * padding))
 
         for x, y, w, h in contour:
@@ -71,7 +72,7 @@ class Detector:
 
 
     # Funktion zur Prüfung, ob zwei BoundingBoxen überlappen oder nahe beieinanderliegen
-    def is_close_or_overlap(self,bbox1, bbox2, threshold=200):
+    def is_close_or_overlap(self,bbox1, bbox2, threshold=50):
         x1, y1, w1, h1 = bbox1
         x2, y2, w2, h2 = bbox2
 
@@ -88,7 +89,17 @@ class Detector:
 
     def extract_person_areas(self,frame, people):
         person_areas = []
+        height, width, _ = frame.shape
+
         for x, y, w, h in people:
-            person_area = frame[y:y + h, x:x + w]  # Ausschneiden des Bereichs
-            person_areas.append(person_area)
+            x_end = min(x + w, width)
+            y_end = min(y + h, height)
+            x_start = max(x, 0)
+            y_start = max(y, 0)
+
+            if (x_end > x_start) and (y_end > y_start):
+                person_area = frame[y_start:y_end, x_start:x_end, :]
+                if person_area.size > 0:
+                    person_areas.append(person_area)
+
         return person_areas

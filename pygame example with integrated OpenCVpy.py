@@ -101,27 +101,31 @@ while running:
     if not paused:
         #bilateral blur == slooooooooooooow
         background,original_vid = backgroundSubtraction.getNextSingleBackground()
+
         people,all_contours = detector.detect(background)
 
         frame_out = original_vid.copy()
 
         person_areas = detector.extract_person_areas(original_vid, people)
 
+        """if len(person_areas) > 0 and person_areas[0].size > 0:
+            cv2.imshow("person", person_areas[0])"""
 
-        for x,y,w,h in people:
+
+        """for x,y,w,h in people:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
 
         
         for x,y,w,h in all_contours:
-            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
+            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)"""
 
 
         #tracker
-        tracker.update_track(people)
+        tracker.update_track(people,person_areas)
 
         # Optischen Fluss anwenden, wenn vorheriger Frame existiert
         #if previous_frame is not None:
-        #    tracker.refine_tracks_with_optical_flow(frame_out, previous_frame)
+            #tracker.refine_tracks_with_optical_flow(frame_out, previous_frame)
 
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()

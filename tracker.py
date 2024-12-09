@@ -3,7 +3,7 @@ import numpy as np
 import KalmanFilter
 
 class Tracker:
-    def __init__(self, max_lost=30, activation_frames=60, max_tracks=1, height_smoothing=20, smoothing_window=5):
+    def __init__(self, max_lost=30, activation_frames=30, max_tracks=1, height_smoothing=20, smoothing_window=4):
         self.next_id = 0
         self.tracks = {}
         self.max_lost = max_lost
@@ -13,7 +13,7 @@ class Tracker:
         self.smoothing_window = smoothing_window  # Anzahl der letzten Frames, die für den Durchschnitt verwendet werden
         self.smoothing_buffers = {}
 
-    def add_track(self, bbox):
+    def add_track(self, bbox,hist):
         track_id = self.next_id
         self.tracks[self.next_id] = {
             "bbox": tuple(map(int, bbox)),
@@ -23,13 +23,13 @@ class Tracker:
             "height_history": [],
             "center_predicter":KalmanFilter.KalmanFilter(),
             "prediction" : tuple([0,0,0,0]),
-            "previous_center":tuple([0,0])
+            "previous_center":tuple([0,0]),
+            "histogram":hist
         }
         self.smoothing_buffers[track_id] = []
         self.next_id += 1
 
     def apply_smoothing(self, track_id, bbox):
-        # Puffer der Bounding-Boxen des Tracks abrufen
         if track_id not in self.smoothing_buffers:
             return bbox
 
@@ -38,12 +38,11 @@ class Tracker:
         if len(self.smoothing_buffers[track_id]) > self.smoothing_window:
             self.smoothing_buffers[track_id].pop(0)
 
-        # Durchschnitt der Bounding-Boxen
         avg_bbox = np.mean(self.smoothing_buffers[track_id], axis=0).astype(int)
 
         return tuple(avg_bbox)
 
-    def update_track(self, detections):
+    def update_track(self, detections,detection_areas):
         update_tracks = {}
         for track_id, track in self.tracks.items():
             track["lost"] += 1
@@ -53,18 +52,39 @@ class Tracker:
         self.tracks = update_tracks
 
         for track_id, track in self.tracks.items():
-            for det in detections:
+            for det,det_area in zip(detections,detection_areas):
                 if self.is_close(track["bbox"], det) or self.is_close(track["prediction"], det):
-                    track["bbox"] = det
-                    track["lost"] = 0
-                    track["stable_frames"] += 1
-                    if track["stable_frames"] >= self.activation_frames:
-                        track["active"] = True
-                    break
+                    det_hist = self.get_hist(det_area)
+                    cmp = self.compare_histogramm(det_hist,track)
+                    bundle = det[2]>det[3]/1.5
+                    print(cmp)
+                    print(bundle)
+                    if cmp > 0.8 or bundle:
+                        track["bbox"] = det
+                        track["lost"] = 0
+                        track["stable_frames"] += 1
+                        if not bundle:
+                            track["histogram"] = det_hist
+                        if track["stable_frames"] >= self.activation_frames:
+                            track["active"] = True
+                        break
             self.predict_future_bbox(track)
         if len(self.tracks) < self.max_tracks and len(detections) > 0:
-            self.add_track(detections[0])
+            self.add_track(detections[0],self.get_hist(detection_areas[0]))
 
+
+    def compare_histogramm(self,det_area_hist,track):      #0.67 - 68
+        val = []
+        for det_hist,track_hist in zip(det_area_hist,track["histogram"]):
+            val.append(cv2.compareHist(det_hist,track_hist,cv2.HISTCMP_CORREL))
+        return np.mean(val)
+
+    def get_hist(self,segment):
+        hist_b = cv2.calcHist([segment], [0], None, [127], [1, 256])
+        hist_g = cv2.calcHist([segment], [1], None, [127], [1, 256])
+        hist_r = cv2.calcHist([segment], [2], None, [127], [1, 256])
+
+        return [hist_b, hist_g, hist_r]
 
     def is_close(self, bbox1, bbox2, distance_threshold=200):
         x1, y1, w1, h1 = bbox1
@@ -113,6 +133,7 @@ class Tracker:
                 #Glätten
                 smoothed_bbox = self.apply_smoothing(track_id, track["bbox"])
                 track["bbox"] = smoothed_bbox
+            self.predict_future_bbox(track)
 
 
     def predict_future_bbox(self,track):
