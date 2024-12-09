@@ -11,6 +11,7 @@ class MovingEntity:
         self.screen_width = SCREEN_WIDTH
         self.screen_height = SCREEN_HEIGHT
         self.move_right = True
+        self.show= True
 
     def update(self):
         # Überprüfen, ob die Entität den rechten Rand berührt
@@ -30,7 +31,8 @@ class MovingEntity:
             self.rect.x -= self.speed
 
     def draw(self, surface):
-        surface.blit(self.surf, self.rect)
+        if self.show:
+            surface.blit(self.surf, self.rect)
 
     def get_position(self):
         return self.rect.x, self.rect.y

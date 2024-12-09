@@ -38,7 +38,11 @@ pygame.display.set_caption("Computer Vision Game")
 fps = 30
 clock = pygame.time.Clock()
 player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
-moving_entity = entity.MovingEntity(x=0, y=0, width=100, height=30, speed=5, row_height=50, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
+bullet = Player.Projektil(screen_height=SCREEN_HEIGHT)
+
+moving_entities = [
+    entity.MovingEntity(x=0, y=0, width=300, height=30, speed=5, row_height=50, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
+]
 
 # example variable for game score
 gameScore = 0
@@ -50,8 +54,15 @@ paused = False
 ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
+
 collision_check_timer = 0
-collision_check_interval = 500
+collision_check_interval = 800
+fire_interval_ms = 500
+last_fire_time = 0
+cooldown_duration = 1000
+last_collision_time = 0
+
+n = 2
 
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
@@ -82,15 +93,13 @@ while running:
 
         person_areas = detector.extract_person_areas(original_vid, people)
 
-
         """if len(person_areas) > 0 and person_areas[0].size > 0:
             cv2.imshow("person", person_areas[0])"""
-
 
         for x,y,w,h in people:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
 
-        
+
         for x,y,w,h in all_contours:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
 
@@ -126,18 +135,6 @@ while running:
 
         screen.blit(game_frame, (0, 0))
 
-        """
-        # Potenzielle Personenbereiche
-        for i, person_area in enumerate(person_areas):
-
-            person_area = cv2.cvtColor(person_area, cv2.COLOR_BGR2RGB)
-            person_img = np.rot90(person_area)
-            person_surface = pygame.surfarray.make_surface(person_img).convert()
-
-            screen.blit(person_surface, (10 + i * 110, 10))  # Verschieben für mehrere Personen
-            
-        """
-
         'GAME'
         current_time = pygame.time.get_ticks()
         if current_time - collision_check_timer >= collision_check_interval:
@@ -145,7 +142,38 @@ while running:
             if player.rect.colliderect(moving_entity.rect) and frame_out is not None:
                 player.lose_life()
                 print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
+                if len(moving_entities) > 0:
+                    moving_entities.remove(moving_entity)
 
+        if current_time - last_fire_time >= fire_interval_ms:
+            last_fire_time = current_time
+            bullet.fire(player.rect.x, player.rect.y, player.rect.width)
+
+
+        for moving_entity in moving_entities[:]:
+            if bullet.rect.colliderect(moving_entity.rect):
+                if current_time - last_collision_time >= cooldown_duration:
+                    print("Kollision erkannt!")
+                    last_collision_time = current_time
+                    moving_entities.remove(moving_entity)
+
+                    # Füge zwei neue Entitäten hinzu
+                    distance = 0
+                    if len(moving_entities) == 0:
+                        for _ in range(n):
+                            new_entity = entity.MovingEntity(
+                                x=0 + distance ,y=0 , width=100, height=30, speed=5, row_height=50,
+                                SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT
+                            )
+                            distance += 150
+                            moving_entities.append(new_entity)
+                        n += 1
+
+            moving_entity.update()
+            moving_entity.draw(screen)
+
+        bullet.update()
+        bullet.draw(screen)
         # Lebensanzeige oben links
         player.draw_lives(screen, player.lives)
 
@@ -154,15 +182,11 @@ while running:
             print("Spieler 1 hat alle Leben verloren! Spiel beendet.")
             running = False
 
-        moving_entity.update()
-        moving_entity.draw(screen)
         player.draw(screen)
         # update entire screen
         pygame.display.update()
         # set clock
         clock.tick(fps)
-
-
 
 # quit game
 pygame.quit()
