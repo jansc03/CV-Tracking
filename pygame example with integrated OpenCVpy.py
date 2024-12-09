@@ -79,7 +79,7 @@ blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=9)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=12)
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)
@@ -107,6 +107,7 @@ while running:
         frame_out = original_vid.copy()
 
         person_areas = detector.extract_person_areas(original_vid, people)
+
 
         """if len(person_areas) > 0 and person_areas[0].size > 0:
             cv2.imshow("person", person_areas[0])"""

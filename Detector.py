@@ -47,17 +47,6 @@ class Detector:
             if 0.2 < aspect_ratio < 1.0 and cnt_area > min_contour_area:
                 potentialPerson.append((x - padding, y - padding, w + 2 * padding, h + 2 * padding))
 
-        for cnt, cnt_area in contour:
-            x, y, w, h = cnt
-            if w < h :
-                # Padding hinzufügen
-                x_padded = max(x - padding, 0)
-                y_padded = max(y - padding, 0)
-                w_padded = w + 2 * padding
-                h_padded = h + 2 * padding
-
-                potentialPerson.append((x_padded, y_padded, w_padded, h_padded))
-
         return potentialPerson, all_contours
 
 
@@ -77,7 +66,7 @@ class Detector:
         x2, y2, w2, h2 = bbox2
 
         # Rechtecke erweitern (Threshold) für "Nähe"
-        extended_bbox1 = (x1 - threshold, y1 - threshold, w1 + 2 * threshold, h1 + 2 * threshold)
+        extended_bbox1 = (x1 - threshold, y1 - 2*threshold, w1 + 2 * threshold, h1 + 4 * threshold)
 
         # Prüfen, ob bbox2 innerhalb der erweiterten bbox1 liegt
         return not (
