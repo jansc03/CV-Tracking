@@ -112,12 +112,12 @@ while running:
             cv2.imshow("person", person_areas[0])"""
 
 
-        """for x,y,w,h in people:
+        for x,y,w,h in people:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
 
         
         for x,y,w,h in all_contours:
-            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)"""
+            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
 
 
         #tracker

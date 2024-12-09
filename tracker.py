@@ -24,7 +24,7 @@ class Tracker:
             "center_predicter":KalmanFilter.KalmanFilter(),
             "prediction" : tuple([0,0,0,0]),
             "previous_center":tuple([0,0]),
-            "histogram":hist
+            "histogram":[hist]
         }
         self.smoothing_buffers[track_id] = []
         self.next_id += 1
@@ -52,30 +52,41 @@ class Tracker:
         self.tracks = update_tracks
 
         for track_id, track in self.tracks.items():
+            possible = []
             for det,det_area in zip(detections,detection_areas):
                 if self.is_close(track["bbox"], det) or self.is_close(track["prediction"], det):
                     det_hist = self.get_hist(det_area)
                     cmp = self.compare_histogramm(det_hist,track)
                     bundle = det[2]>det[3]/1.5
-                    print(cmp)
-                    print(bundle)
-                    if cmp > 0.8 or bundle:
-                        track["bbox"] = det
-                        track["lost"] = 0
-                        track["stable_frames"] += 1
-                        if not bundle:
-                            track["histogram"] = det_hist
-                        if track["stable_frames"] >= self.activation_frames:
-                            track["active"] = True
-                        break
+                    if cmp > 0.5 or bundle:
+                        possible.append((det,cmp,bundle,det_hist))
+
+            if len(possible) > 0:
+                print("match")
+                pos = max(possible,key=lambda x: x[1])
+                det,cmp,bundle,det_hist = pos
+                track["bbox"] = det
+                track["lost"] = 0
+                track["stable_frames"] += 1
+                if not bundle and cmp > 0.8:
+                    self.add_histogramm(det_hist, track)
+                if track["stable_frames"] >= self.activation_frames:
+                    track["active"] = True
             self.predict_future_bbox(track)
         if len(self.tracks) < self.max_tracks and len(detections) > 0:
             self.add_track(detections[0],self.get_hist(detection_areas[0]))
 
+    def sortSecond(self,val):
+        return val[1]
+
+    def add_histogramm(self,hist, track):
+        track["histogram"].append(hist)
+        if len(track["histogram"])>=20:
+            track["histogram"].pop(0)
 
     def compare_histogramm(self,det_area_hist,track):      #0.67 - 68
         val = []
-        for det_hist,track_hist in zip(det_area_hist,track["histogram"]):
+        for det_hist,track_hist in zip(det_area_hist,np.mean(track["histogram"],axis=0)):
             val.append(cv2.compareHist(det_hist,track_hist,cv2.HISTCMP_CORREL))
         return np.mean(val)
 
@@ -170,7 +181,6 @@ class Tracker:
             new_bbox_y = int(track_prediction[1] - bbox_height // 2)
 
             track["prediction"] = (new_bbox_x, track_prediction[1], bbox_width, bbox_height)
-        print(track["prediction"])
 
 
     def simple_future_box_prediction(self,track):

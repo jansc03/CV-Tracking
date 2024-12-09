@@ -13,14 +13,12 @@ class Detector:
         mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, self.kernel, iterations=2)
         mask_eroded = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, self.kernel, iterations=2)
 
-        cv2.imshow("back",mask_eroded)
-
         contours, hierarchy = cv2.findContours(mask_eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         people = self._filter(contours)
         return people
 
-    def _filter(self, contours, padding=20):
+    def _filter(self, contours, padding=5):
         low_potential_contour_area = 1000
         min_contour_area = 10000
         max_contour_area = 500000
@@ -28,27 +26,29 @@ class Detector:
         all_contours = [cv2.boundingRect(cnt) for cnt in contours if
                         max_contour_area > cv2.contourArea(cnt) > low_potential_contour_area]
 
-        contour = [cv2.boundingRect(cnt) for cnt in contours if
+        contour = [(cv2.boundingRect(cnt),cv2.contourArea(cnt)) for cnt in contours if
                    max_contour_area > cv2.contourArea(cnt) > min_contour_area]
 
-        potentialParts = [cv2.boundingRect(cnt) for cnt in contours if
+        potentialParts = [(cv2.boundingRect(cnt),cv2.contourArea(cnt)) for cnt in contours if
                           min_contour_area > cv2.contourArea(cnt) > low_potential_contour_area]
 
-        for pp in potentialParts:
-            for cp in contour:
+        for pp,pa in potentialParts:
+            for cp,ca in contour:
                 if self.is_close_or_overlap(pp, cp):
                     merge = (np.array(pp), np.array(cp))
-                    contour.append(self.merge_bounding_boxes(merge))
-                    contour.remove(cp)
+                    contour.append((self.merge_bounding_boxes(merge),pa+ca))
+                    contour.remove((cp,ca))
+                    break
         potentialPerson = []
 
-        for cnt in contour:
+        for cnt,cnt_area in contour:
             x, y, w, h = cnt
             aspect_ratio = float(w) / h
-            if 0.2 < aspect_ratio < 1.0:
+            if 0.2 < aspect_ratio < 1.0 and cnt_area > min_contour_area:
                 potentialPerson.append((x - padding, y - padding, w + 2 * padding, h + 2 * padding))
 
-        for x, y, w, h in contour:
+        for cnt, cnt_area in contour:
+            x, y, w, h = cnt
             if w < h :
                 # Padding hinzufügen
                 x_padded = max(x - padding, 0)
