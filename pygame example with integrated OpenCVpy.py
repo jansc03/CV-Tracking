@@ -10,42 +10,17 @@ import numpy as np
 import cv2
 import pygame
 
-import BackgroundSubtraction as bs
+
+import background_subtraction as bs
 import detector as dt
 import tracker as tr
+import entity
+import player as Player
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
 SCREEN 	      = [SCREEN_WIDTH,SCREEN_HEIGHT]
 
-
-# --------------------------------------------------------------------------
-# -- player class
-# --------------------------------------------------------------------------
-class Player(pygame.sprite.Sprite):
-    # -----------------------------------------------------------
-    # init class
-    def __init__(self, posX, posY):
-        super(Player, self).__init__()
-        self.surf = pygame.Surface((100, 30))
-        # fill with color
-        self.surf.fill((0, 0, 255))
-        self.rect = self.surf.get_rect()
-        # start at screen center
-        self.rect.x = posX
-        self.rect.y = posY
-
-    # -----------------------------------------------------------
-	# update player rectangle
-    def update(self, keys):
-        if keys[pygame.K_UP]:
-            self.rect.y -=5
-        if keys[pygame.K_DOWN]:
-            self.rect.y +=5
-        if keys[pygame.K_LEFT]:
-            self.rect.x -=5
-        if keys[pygame.K_RIGHT]:
-            self.rect.x +=5
 
 
 
@@ -63,9 +38,12 @@ pygame.display.set_caption("Computer Vision Game")
 # init game clock
 fps = 30
 clock = pygame.time.Clock()
+player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
+bullet = Player.Projektil(screen_height=SCREEN_HEIGHT)
 
-# init player
-player = Player(screen.get_width()/2, screen.get_height()/2)
+moving_entities = [
+    entity.MovingEntity(x=0, y=0, width=300, height=30, speed=5, row_height=50, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
+]
 
 # example variable for game score
 gameScore = 0
@@ -77,16 +55,24 @@ paused = False
 ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
+
+collision_check_timer = 0
+collision_check_interval = 800
+fire_interval_ms = 500
+last_fire_time = 0
+cooldown_duration = 1000
+last_collision_time = 0
+
+n = 2
+
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=12)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=8)
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
 word = tr.Tracker()
-
-
 
 while running:
     for event in pygame.event.get():
@@ -122,25 +108,18 @@ while running:
         """if len(person_areas)>0:
             cv2.imshow("Frame", person_areas[0])"""
 
-
         """if len(person_areas) > 0 and person_areas[0].size > 0:
             cv2.imshow("person", person_areas[0])"""
-
 
         for x,y,w,h in people:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
 
-        
-        """for x,y,w,h in all_contours:
-            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)"""
 
+        for x,y,w,h in all_contours:
+            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
 
         #tracker
         tracker.update_track(people,person_hist)
-
-        # Optischen Fluss anwenden, wenn vorheriger Frame existiert
-        #if previous_frame is not None:
-            #tracker.refine_tracks_with_optical_flow(frame_out, previous_frame)
 
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
@@ -154,7 +133,7 @@ while running:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-
+            player.update_position(x, y, w, h)
 
         #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
         # image needs to be rotated for pygame
@@ -165,40 +144,64 @@ while running:
 
         # convert image to pygame and visualize
 
+        img_rgb = np.flip(img_rgb,axis=0)
+
         game_frame = pygame.surfarray.make_surface(img_rgb).convert()
 
         screen.blit(game_frame, (0, 0))
 
-        """
-        # Potenzielle Personenbereiche
-        for i, person_area in enumerate(person_areas):
+        'GAME'
+        current_time = pygame.time.get_ticks()
+        if current_time - collision_check_timer >= collision_check_interval:
+            collision_check_timer = current_time
+            if player.rect.colliderect(moving_entity.rect) and frame_out is not None:
+                player.lose_life()
+                print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
+                if len(moving_entities) > 0:
+                    moving_entities.remove(moving_entity)
 
-            person_area = cv2.cvtColor(person_area, cv2.COLOR_BGR2RGB)
-            person_img = np.rot90(person_area)
-            person_surface = pygame.surfarray.make_surface(person_img).convert()
+        if current_time - last_fire_time >= fire_interval_ms:
+            last_fire_time = current_time
+            bullet.fire(player.rect.x, player.rect.y, player.rect.width)
 
-            screen.blit(person_surface, (10 + i * 110, 10))  # Verschieben für mehrere Personen
-            
-        """
 
-        '''
-        # -- update & draw object on screen
-        player.update(pygame.key.get_pressed())
-        screen.blit(player.surf, player.rect)
+        for moving_entity in moving_entities[:]:
+            if bullet.rect.colliderect(moving_entity.rect):
+                if current_time - last_collision_time >= cooldown_duration:
+                    print("Kollision erkannt!")
+                    last_collision_time = current_time
+                    moving_entities.remove(moving_entity)
 
-        
-        # -- add Text on screen (e.g. score)
-        textFont = pygame.font.SysFont("arial", 26)
-        textExample = textFont.render(f'Score: {gameScore}', True, (255, 0, 0))
-        screen.blit(textExample, (20, 20))
-        '''
+                    # Füge zwei neue Entitäten hinzu
+                    distance = 0
+                    if len(moving_entities) == 0:
+                        for _ in range(n):
+                            new_entity = entity.MovingEntity(
+                                x=0 + distance ,y=0 , width=100, height=30, speed=5, row_height=50,
+                                SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT
+                            )
+                            distance += 150
+                            moving_entities.append(new_entity)
+                        n += 1
 
+            moving_entity.update()
+            moving_entity.draw(screen)
+
+        bullet.update()
+        bullet.draw(screen)
+        # Lebensanzeige oben links
+        player.draw_lives(screen, player.lives)
+
+        # Prüfen, ob der Spieler noch lebt
+        if not player.is_alive():
+            print("Spieler 1 hat alle Leben verloren! Spiel beendet.")
+            running = False
+
+        player.draw(screen)
         # update entire screen
         pygame.display.update()
         # set clock
         clock.tick(fps)
-
-
 
 # quit game
 pygame.quit()
