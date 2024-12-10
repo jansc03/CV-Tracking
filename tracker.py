@@ -58,7 +58,7 @@ class Tracker:
                     cmp = self.compare_histogramm(det_area_hist,track)
                     print("pre",cmp)
                     bundle = det[2]>det[3]/2
-                    if ((cmp > 0.6 or bundle) and track["lost"]<2) or (cmp > 0.85 and track["lost"]>1):
+                    if cmp > 0.6 or bundle:
                         possible.append((det,cmp,bundle,det_area_hist))
             if len(possible) > 0:
                 pos = max(possible,key=lambda x: x[1])
