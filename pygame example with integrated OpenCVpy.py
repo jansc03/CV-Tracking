@@ -11,7 +11,7 @@ import cv2
 import pygame
 
 import BackgroundSubtraction as bs
-import Detector as dt
+import detector as dt
 import tracker as tr
 
 SCREEN_WIDTH  = 1280
@@ -103,8 +103,8 @@ while running:
     if not paused:
         #bilateral blur == slooooooooooooow
         background,original_vid = backgroundSubtraction.getNextSingleBackground()
-        #bgImg = cv2.GaussianBlur(background, (5, 5), 2)
-        mask_eroded = cv2.morphologyEx(background, cv2.MORPH_CLOSE, kernel, iterations=2)
+        bgImg = cv2.GaussianBlur(background, (5, 5), 2)
+        mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, kernel, iterations=2)
         background = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=2).astype(np.uint8)
 
         cv2.imshow("Background", background)
