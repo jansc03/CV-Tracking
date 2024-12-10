@@ -56,15 +56,12 @@ class Tracker:
             for det,det_area_hist in zip(detections,detection_areas_histogram):
                 if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
                     cmp = self.compare_histogramm(det_area_hist,track)
-                    print("pre",cmp)
                     bundle = det[2]>det[3]/2
                     if cmp > 0.6 or bundle:
                         possible.append((det,cmp,bundle,det_area_hist))
             if len(possible) > 0:
                 pos = max(possible,key=lambda x: x[1])
                 det,cmp,bundle,det_hist = pos
-                print("after",cmp)
-                print(bundle)
                 track["bbox"] = det
                 track["lost"] = 0
                 track["stable_frames"] += 1
