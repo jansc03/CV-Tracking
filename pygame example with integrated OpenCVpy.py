@@ -79,7 +79,7 @@ blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=12)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=0)
 
 detector = dt.Detector()
 tracker = tr.Tracker(max_lost=90)
@@ -102,15 +102,23 @@ while running:
     if not paused:
         #bilateral blur == slooooooooooooow
         background,original_vid = backgroundSubtraction.getNextSingleBackground()
-        bgImg = cv2.GaussianBlur(background, (5, 5), 2)
-        mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, kernel, iterations=2)
+        #bgImg = cv2.GaussianBlur(background, (5, 5), 2)
+        mask_eroded = cv2.morphologyEx(background, cv2.MORPH_CLOSE, kernel, iterations=2)
         background = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=2)
+
+        cv2.imshow("Background", background)
 
         people,all_contours = detector.detect(background)
 
         frame_out = original_vid.copy()
 
         person_areas = detector.extract_person_areas(original_vid,background, people)
+
+        word = tr.Tracker()
+        person_hist = []
+        for person,background in person_areas:
+            person_hist.append(word.get_hist(person,background))
+
         """if len(person_areas)>0:
             cv2.imshow("Frame", person_areas[0])"""
 
@@ -128,7 +136,7 @@ while running:
 
 
         #tracker
-        tracker.update_track(people,person_areas)
+        tracker.update_track(people,person_hist)
 
         # Optischen Fluss anwenden, wenn vorheriger Frame existiert
         #if previous_frame is not None:

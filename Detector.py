@@ -73,7 +73,7 @@ class Detector:
                 y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
         )
 
-    def extract_person_areas(self,frame,backframe, people):
+    def extract_person_areas(self,frame,background, people):
         person_areas = []
         height, width, _ = frame.shape
 
@@ -85,9 +85,7 @@ class Detector:
 
             if (x_end > x_start) and (y_end > y_start):
                 person_area = frame[y_start:y_end, x_start:x_end, :]
-                person_background_area = backframe[y_start:y_end, x_start:x_end]
+                background_frame = background[y_start:y_end, x_start:x_end]
                 if person_area.size > 0:
-                    person_background_area = cv2.cvtColor(person_background_area, cv2.COLOR_GRAY2BGR)
-                    person = cv2.bitwise_and(person_area,person_background_area)
-                    person_areas.append(person)
+                    person_areas.append((person_area,background_frame))
         return person_areas

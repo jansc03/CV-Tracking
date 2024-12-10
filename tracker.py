@@ -42,7 +42,7 @@ class Tracker:
 
         return tuple(avg_bbox)
 
-    def update_track(self, detections,detection_areas):
+    def update_track(self, detections,detection_areas_histogram):
         update_tracks = {}
         for track_id, track in self.tracks.items():
             track["lost"] += 1
@@ -53,33 +53,28 @@ class Tracker:
 
         for track_id, track in self.tracks.items():
             possible = []
-            for det,det_area in zip(detections,detection_areas):
+            for det,det_area_hist in zip(detections,detection_areas_histogram):
                 if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
-                    det_hist = self.get_hist(det_area)
-                    cmp = self.compare_histogramm(det_hist,track)
+                    cmp = self.compare_histogramm(det_area_hist,track)
                     print("pre",cmp)
-                    bundle = det[2]>det[3]/1.5
-                    if cmp > 0.6 or bundle:
-                        possible.append((det,cmp,bundle,det_hist))
-
+                    bundle = det[2]>det[3]/2
+                    if ((cmp > 0.6 or bundle) and track["lost"]<2) or (cmp > 0.85 and track["lost"]>1):
+                        possible.append((det,cmp,bundle,det_area_hist))
             if len(possible) > 0:
-                print("match")
                 pos = max(possible,key=lambda x: x[1])
                 det,cmp,bundle,det_hist = pos
                 print("after",cmp)
+                print(bundle)
                 track["bbox"] = det
                 track["lost"] = 0
                 track["stable_frames"] += 1
-                if not bundle and cmp > 0.80:
+                if not bundle and cmp > 0.75:
                     self.add_histogramm(det_hist, track)
                 if track["stable_frames"] >= self.activation_frames:
                     track["active"] = True
             self.predict_future_bbox(track)
         if len(self.tracks) < self.max_tracks and len(detections) > 0:
-            self.add_track(detections[0],self.get_hist(detection_areas[0]))
-
-    def sortSecond(self,val):
-        return val[1]
+            self.add_track(detections[0],detection_areas_histogram[0])
 
     def add_histogramm(self,hist, track):
         track["histogram"].append(hist)
@@ -92,13 +87,10 @@ class Tracker:
             val.append(cv2.compareHist(det_hist,track_hist,cv2.HISTCMP_CORREL))
         return np.mean(val)
 
-    def get_hist(self,segment):
-        hist_b = cv2.calcHist([segment], [0], None, [127], [1, 256])
-        hist_g = cv2.calcHist([segment], [1], None, [127], [1, 256])
-        hist_r = cv2.calcHist([segment], [2], None, [127], [1, 256])
-        hist_b[0] = 0
-        hist_g[0] = 0
-        hist_r[0] = 0
+    def get_hist(self,segment,mask):
+        hist_b = cv2.calcHist([segment], [0], mask, [127], [1, 256])
+        hist_g = cv2.calcHist([segment], [1], mask, [127], [1, 256])
+        hist_r = cv2.calcHist([segment], [2], mask, [127], [1, 256])
         cv2.normalize(hist_b,hist_b,0,255,cv2.NORM_MINMAX)
         cv2.normalize(hist_g,hist_g,0,255,cv2.NORM_MINMAX)
         cv2.normalize(hist_r,hist_r,0,255,cv2.NORM_MINMAX)
