@@ -66,15 +66,16 @@ n = 2
 
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=8)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=9)
 
 detector = dt.Detector()
 custom_tracker = tr.Tracker(max_lost=90)
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
 word = tr.Tracker()
+"""
 # Initialize YOLO tracker
 yolo_tracker = YOLOTracker(fps=fps)
-
+"""
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -97,6 +98,7 @@ while running:
         #cv2.imshow("Background", background)
 
         people,all_contours = detector.detect(background)
+
         frame_out = original_vid.copy()
         person_areas = detector.extract_person_areas(original_vid,background, people)
 
@@ -104,37 +106,41 @@ while running:
         for person,background in person_areas:
             person_hist.append(word.get_hist(person,background))
 
-        """if len(person_areas)>0:
-            cv2.imshow("Frame", person_areas[0])"""
 
-        """if len(person_areas) > 0 and person_areas[0].size > 0:
-            cv2.imshow("person", person_areas[0])"""
-
+        """
         for x,y,w,h in people:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
 
 
         for x,y,w,h in all_contours:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
+        """
 
         #tracker
         custom_tracker.update_track(people,person_hist)
+        """
         # YOLO detection and tracking
         yolo_tracks = yolo_tracker.process_frame(original_vid)
         mock_detections = [(track.box[0], track.box[1], track.box[2] - track.box[0], track.box[3] - track.box[1]) for
                            track in yolo_tracks]
+        """
 
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
 
+
         # Visualize custom tracker results
         for track_id, track in custom_tracker.get_active_tracks().items():
-            x, y, w, h = track["bbox"]
+
+            if (track["lost"] > 0):
+                x, y, w, h = track["prediction"]
+            else:
+                x, y, w, h = track["bbox"]
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            cv2.putText(frame_out, f"Custom ID {track_id}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
             # player.update_position(x, y, w, h)
-
+            #IOU
             # Definiere den erweiterten Bereich für den YOLO-Tracker
             threshold = 100
             extended_x1 = max(0, x - threshold)
@@ -142,19 +148,23 @@ while running:
             extended_x2 = min(SCREEN_WIDTH, x + w + threshold)
             extended_y2 = min(SCREEN_HEIGHT, y + h + threshold)
 
+            """
             # Filtere YOLO-Tracker-Ergebnisse basierend auf dem erweiterten Bereich
             filtered_yolo_tracks = [
                 track for track in yolo_tracks
                 if track.box[0] >= extended_x1 and track.box[1] >= extended_y1 and
                    track.box[2] <= extended_x2 and track.box[3] <= extended_y2
             ]
-
+            
+             
             # Visualisiere die gefilterten YOLO-Tracker-Ergebnisse
             for track in filtered_yolo_tracks:
                 x1, y1, x2, y2 = map(int, track.box)
                 cv2.rectangle(frame_out, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.putText(frame_out, f"YOLO ID {track.id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
                             2)
+            """
+
 
 
 
@@ -170,7 +180,9 @@ while running:
         img_rgb = np.flip(img_rgb,axis=0)
         game_frame = pygame.surfarray.make_surface(img_rgb).convert()
         screen.blit(game_frame, (0, 0))
+        """
         iou.process_frame(yolo_tracker, custom_tracker, original_vid)
+        """
 
 
 
