@@ -9,7 +9,7 @@ Thema: pygame example with integrated OpenCV
 import numpy as np
 import cv2
 import pygame
-
+from torch.ao.nn.quantized.functional import threshold
 
 import background_subtraction as bs
 import detector as dt
@@ -127,19 +127,36 @@ while running:
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
 
-        # Visualize YOLO tracker results
-        for track in yolo_tracks:
-            x1, y1, x2, y2 = map(int, track.box)
-            cv2.rectangle(frame_out, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame_out, f"ID {track.id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
         # Visualize custom tracker results
         for track_id, track in custom_tracker.get_active_tracks().items():
             x, y, w, h = track["bbox"]
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.putText(frame_out, f"Custom ID {track_id}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
-            #player.update_position(x, y, w, h)
+            # player.update_position(x, y, w, h)
+
+            # Definiere den erweiterten Bereich für den YOLO-Tracker
+            threshold = 100
+            extended_x1 = max(0, x - threshold)
+            extended_y1 = max(0, y - threshold)
+            extended_x2 = min(SCREEN_WIDTH, x + w + threshold)
+            extended_y2 = min(SCREEN_HEIGHT, y + h + threshold)
+
+            # Filtere YOLO-Tracker-Ergebnisse basierend auf dem erweiterten Bereich
+            filtered_yolo_tracks = [
+                track for track in yolo_tracks
+                if track.box[0] >= extended_x1 and track.box[1] >= extended_y1 and
+                   track.box[2] <= extended_x2 and track.box[3] <= extended_y2
+            ]
+
+            # Visualisiere die gefilterten YOLO-Tracker-Ergebnisse
+            for track in filtered_yolo_tracks:
+                x1, y1, x2, y2 = map(int, track.box)
+                cv2.rectangle(frame_out, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame_out, f"YOLO ID {track.id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
+                            2)
+
+
 
         #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
         # image needs to be rotated for pygame
