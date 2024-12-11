@@ -3,7 +3,7 @@ import numpy as np
 import kalman_filter
 
 class Tracker:
-    def __init__(self, max_lost=30, activation_frames=30, max_tracks=1, height_smoothing=20, smoothing_window=4):
+    def __init__(self, max_lost=30, activation_frames=0, max_tracks=1, height_smoothing=20, smoothing_window=4):
         self.next_id = 0
         self.tracks = {}
         self.max_lost = max_lost
