@@ -9,45 +9,19 @@ Thema: pygame example with integrated OpenCV
 import numpy as np
 import cv2
 import pygame
+from torch.ao.nn.quantized.functional import threshold
 
-import BackgroundSubtraction as bs
-import Detector as dt
+import background_subtraction as bs
+import detector as dt
 import tracker as tr
+import entity
+import player as Player
+import iou
+from yolo_tracker_integration import YOLOTracker
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
 SCREEN 	      = [SCREEN_WIDTH,SCREEN_HEIGHT]
-
-
-# --------------------------------------------------------------------------
-# -- player class
-# --------------------------------------------------------------------------
-class Player(pygame.sprite.Sprite):
-    # -----------------------------------------------------------
-    # init class
-    def __init__(self, posX, posY):        
-        super(Player, self).__init__()
-        self.surf = pygame.Surface((100, 30))
-        # fill with color
-        self.surf.fill((0, 0, 255))
-        self.rect = self.surf.get_rect()
-        # start at screen center
-        self.rect.x = posX
-        self.rect.y = posY
-        
-    # -----------------------------------------------------------
-	# update player rectangle
-    def update(self, keys):
-        if keys[pygame.K_UP]:
-            self.rect.y -=5
-        if keys[pygame.K_DOWN]:
-            self.rect.y +=5
-        if keys[pygame.K_LEFT]:
-            self.rect.x -=5
-        if keys[pygame.K_RIGHT]:
-            self.rect.x +=5        
-
-
 
 # --------------------------------------------------------------------------
 # -- game
@@ -63,9 +37,10 @@ pygame.display.set_caption("Computer Vision Game")
 # init game clock
 fps = 30
 clock = pygame.time.Clock()
+player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
+bullet = Player.Projektil(screen_height=SCREEN_HEIGHT)
 
-# init player
-player = Player(screen.get_width()/2, screen.get_height()/2)
+moving_entities = []
 
 # example variable for game score
 gameScore = 0
@@ -76,14 +51,31 @@ running = True
 paused = False
 ksize=5
 blursize = 5 # nicht größer als 5 => zu langsam
+previous_frame = None
+
+collision_check_timer = 0
+collision_check_interval = 1000
+fire_interval_ms = 500
+last_fire_time = 0
+cooldown_duration = 1000
+last_collision_time = 0
+
+n = 1
+
 backgroundSubtraction = bs.BackgroundSubtraction()
-#backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=4)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=0)
 
 detector = dt.Detector()
-tracker = tr.Tracker(max_lost=90)
+custom_tracker = tr.Tracker(max_lost=90)
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+word = tr.Tracker()
 
+"""
+# Initialize YOLO tracker
+yolo_tracker = YOLOTracker(fps=fps)
+"""
 
+all_iou_values = []
 
 while running:
     for event in pygame.event.get():
@@ -96,59 +88,161 @@ while running:
             elif event.key==pygame.K_SPACE:
                 paused = not paused
 
-
     if not paused:
         #bilateral blur == slooooooooooooow
         background,original_vid = backgroundSubtraction.getNextSingleBackground()
+        bgImg = cv2.GaussianBlur(background, (5, 5), 2)
+        mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, kernel, iterations=2)
+        background = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=2).astype(np.uint8)
+
+        #cv2.imshow("Background", background)
 
         people,all_contours = detector.detect(background)
 
-
+        """Alle Personen im Frame werden Detektiert"""
         frame_out = original_vid.copy()
+        person_areas = detector.extract_person_areas(original_vid,background, people)
+
+        """Histogramme für die Detektierten Personen werden erstellt"""
+        person_hist = []
+        for person,background in person_areas:
+            person_hist.append(word.get_hist(person,background))
+
+
+        """
+        Zeichnet BBoxen
         for x,y,w,h in people:
-            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (0, 0, 200), 3)
+            frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
+
 
         for x,y,w,h in all_contours:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
+        """
 
         #tracker
-        tracker.update_track(people)
-        for track_id, track in tracker.get_active_tracks().items():
-            x, y, w, h = track["bbox"]
-            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        custom_tracker.update_track(people,person_hist)
+        """
+        # YOLO detection und tracking
+        yolo_tracks = yolo_tracker.process_frame(original_vid)
+        mock_detections = [(track.box[0], track.box[1], track.box[2] - track.box[0], track.box[3] - track.box[1]) for
+                           track in yolo_tracks]
+        """
 
-        #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
-        # image needs to be rotated for pygame
 
+        # Speichere den aktuellen Frame als vorherigen
+        previous_frame = frame_out.copy()
+
+
+        # Visualisiere custom tracker
+        for track_id, track in custom_tracker.get_active_tracks().items():
+
+            if (track["lost"] > 0):
+                x, y, w, h = track["prediction"]
+            else:
+                x, y, w, h = track["bbox"]
+            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+
+            player.update_position(x, y, w, h)
+
+            #IOU
+            # Definiere den erweiterten Bereich für den YOLO-Tracker
+            threshold = 100
+            extended_x1 = max(0, x - threshold)
+            extended_y1 = max(0, y - threshold)
+            extended_x2 = min(SCREEN_WIDTH, x + w + threshold)
+            extended_y2 = min(SCREEN_HEIGHT, y + h + threshold)
+
+            """
+            # Filtere YOLO-Tracker-Ergebnisse basierend auf dem erweiterten Bereich
+            filtered_yolo_tracks = [
+                track for track in yolo_tracks
+                if track.box[0] >= extended_x1 and track.box[1] >= extended_y1 and
+                   track.box[2] <= extended_x2 and track.box[3] <= extended_y2
+            ]
+            
+             
+            # Visualisiere die gefilterten YOLO-Tracker-Ergebnisse
+            for track in filtered_yolo_tracks:
+                x1, y1, x2, y2 = map(int, track.box)
+                cv2.rectangle(frame_out, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame_out, f"YOLO ID {track.id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
+                            2)
+            """
+        # Frame konvertieren
         frame_out = cv2.cvtColor(frame_out, cv2.COLOR_BGR2RGB)
-
-        imgRGB = np.rot90(frame_out)
-        # convert image to pygame and visualize
-        game_frame = pygame.surfarray.make_surface(imgRGB).convert()
-
+        img_rgb = np.rot90(frame_out)
+        img_rgb = np.flip(img_rgb,axis=0)
+        game_frame = pygame.surfarray.make_surface(img_rgb).convert()
         screen.blit(game_frame, (0, 0))
 
-        '''
-        # -- update & draw object on screen
-        player.update(pygame.key.get_pressed())
-        screen.blit(player.surf, player.rect)
+        """
+        # Berechne IoU-Werte für den Frame und speichere sie
+        frame_iou_values = iou.process_frame(yolo_tracker, custom_tracker, original_vid)
+        all_iou_values.append(frame_iou_values)
+        """
 
-        
-        # -- add Text on screen (e.g. score)
-        textFont = pygame.font.SysFont("arial", 26)
-        textExample = textFont.render(f'Score: {gameScore}', True, (255, 0, 0))
-        screen.blit(textExample, (20, 20))
-        '''
+        'GAME'
+        # Kollisions abfrage fuer den Player
+        current_time = pygame.time.get_ticks()
+        if current_time - collision_check_timer >= collision_check_interval:
+            collision_check_timer = current_time
+            for moving_entity in moving_entities[:]:
+                if player.rect.colliderect(moving_entity.rect) and frame_out is not None:
+                    player.lose_life()
+                    print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
+                    moving_entities.pop()
 
-        # update entire screen
+        if current_time - last_fire_time >= fire_interval_ms:
+            last_fire_time = current_time
+            bullet.fire(player.rect.x, player.rect.y, player.rect.width)
+
+        #Kollisions abfrage fuer die UFOs
+        for moving_entity in moving_entities[:]:
+            moving_entity.update()
+            moving_entity.draw(screen)
+            if bullet.rect.colliderect(moving_entity.rect):
+                if current_time - last_collision_time >= cooldown_duration:
+                    print("Kollision erkannt!")
+                    last_collision_time = current_time
+                    moving_entities.remove(moving_entity)
+
+        # Fuege neue Entitäten hinzu
+        distance = 0
+        if len(moving_entities) == 0:
+            for _ in range(n):
+                new_entity = entity.MovingEntity(
+                    x=0 + distance ,y=0 , width=120, height=80, speed=9, row_height=50,
+                        SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT
+                    )
+                distance += 150
+                moving_entities.append(new_entity)
+            n += 1
+
+        bullet.update()
+        bullet.draw(screen)
+        # Lebensanzeige oben links
+        player.draw_lives(screen, player.lives)
+
+        # Prüfen, ob der Spieler noch lebt
+        if not player.is_alive():
+            print("Spieler 1 hat alle Leben verloren! Spiel beendet.")
+            running = False
+
+        player.draw(screen)
+
+        # update screen
         pygame.display.update()
-        # set clock
         clock.tick(fps)
 
-    
-
 # quit game
+
+"""
+#IoU ausgabe
+final_results = iou.aggregate_iou_results(all_iou_values)
+print(final_results)
+"""
+
 pygame.quit()
 backgroundSubtraction.closeAll()
 
