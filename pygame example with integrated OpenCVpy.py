@@ -9,7 +9,7 @@ Thema: pygame example with integrated OpenCV
 import numpy as np
 import cv2
 import pygame
-from torch.ao.nn.quantized.functional import threshold
+#from torch.ao.nn.quantized.functional import threshold
 
 import background_subtraction as bs
 import detector as dt
@@ -17,7 +17,7 @@ import tracker as tr
 import entity
 import player as Player
 import iou
-from yolo_tracker_integration import YOLOTracker
+#from yolo_tracker_integration import YOLOTracker
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
@@ -99,9 +99,11 @@ while running:
 
         people,all_contours = detector.detect(background)
 
+        """Alle Personen im Frame werden Detektiert"""
         frame_out = original_vid.copy()
         person_areas = detector.extract_person_areas(original_vid,background, people)
 
+        """Histogramme für die Detektierten Personen wereden erstellt"""
         person_hist = []
         for person,background in person_areas:
             person_hist.append(word.get_hist(person,background))
