@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
-
+"""Diese Klasse wird genutzt zum Vorhersagen der nächsten Position der Box. 
+    Durch die Konfiguration des Kalman können zwei Werte vorhergesagt werden, welche bei uns x und y sind,
+    allerings haben wir aufgrund von Problemen mit der Vorhersage der Y Werte, diese im späteren Verlauf nicht weiter genutzt """
 class KalmanFilter:
     kf = cv2.KalmanFilter(4, 2)
     kf.measurementMatrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], dtype=np.float32)
@@ -12,6 +14,7 @@ class KalmanFilter:
     kf.measurementNoiseCov = np.array([[1e-2, 0],  # Weniger Unsicherheit bei Messungen
                                        [0, 1e-2]], dtype=np.float32)  # Für x, y Messungen
 
+    """Diese Methode gibt einmal die tatsächlichen Werte über, für den Kalmanfilter zum lernen und Predicted im anschluss die nächsten Werte"""
     def predict(self,coordX,coordY):
         measured = np.array([[np.float32(coordX)], [np.float32(coordY)]])
         self.kf.correct(measured)

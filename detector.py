@@ -5,18 +5,23 @@ import cv2
 
 class Detector:
     def __init__(self):
-        self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
         return
 
+    """Erhält ein Backgroundimage und gibt Bounding Boxen für alle erkannten Personen zurück
+    und alle Bounding Boxen von allen anfangs gefundenen Konturen, zum Visualisieren des Ablaufs"""
     def detect(self, bgImg):
-
         contours, hierarchy = cv2.findContours(bgImg, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         people = self._filter(contours)
         return people
 
+    """In dieser Methode werden die Konturen zunächst nach ihren Flächeninhalt Sortiert.
+    Dann wird geprüft ob kleinere Kunturen in der nähe von größeren sind und dann zusammengefügt,
+    dies passiert mithilfe von Boundingboxen.
+    Anschließend werden die Übrigen Boundingenboxen nocheinmal nach iherer Form und tatsächlichen Inhalt gefiltert.
+    """
     def _filter(self, contours, padding=5):
-        low_potential_contour_area = 1000
+        low_potential_contour_area = 1000   #Magic Numbers für Sortierung
         min_contour_area = 10000
         max_contour_area = 500000
 
@@ -41,13 +46,12 @@ class Detector:
         for cnt,cnt_area in contour:
             x, y, w, h = cnt
             aspect_ratio = float(w) / h
-            if 0.2 < aspect_ratio < 1.3 and cnt_area > min_contour_area:
+            if 0.2 < aspect_ratio < 1.3 and cnt_area > min_contour_area:            # Magic Number für Seitenverhältniss
                 potentialPerson.append((x - padding, y - padding, w + 2 * padding, h + 2 * padding))
 
         return potentialPerson, all_contours
 
-
-    # Kombiniert 2 BoundingBoxen
+    """Diese Methode kombienirt 2 Boundingboxen zu einer großen zusammen"""
     def merge_bounding_boxes(self, bboxes):
         x_min = min([bbox[0] for bbox in bboxes])
         y_min = min([bbox[1] for bbox in bboxes])
@@ -56,8 +60,10 @@ class Detector:
         return x_min, y_min, x_max - x_min, y_max - y_min
 
 
-
-    # Funktion zur Prüfung, ob zwei BoundingBoxen überlappen oder nahe beieinanderliegen
+    """Diese Methode überprüft ob zwei Boundingboxen nahe beieinander sind oder überlappen durch das Erweitern der
+    Boundingboxen und dass anschließende vergleichen auf überlappungen.
+    Hierbei werden die Boundingboxen in der Vertikalen doppelt so weit gestereckt wie ind der Vertikalen,
+     sie dürfen also horizontal weiter auseinander liegen als vertikal"""
     def is_close_or_overlap(self,bbox1, bbox2, threshold=50):
         x1, y1, w1, h1 = bbox1
         x2, y2, w2, h2 = bbox2
@@ -73,6 +79,8 @@ class Detector:
                 y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
         )
 
+    """Diese Methode gibt den Bildausschnitt zurück, der durch eine Boundingbox
+     welche zu einer Person gehört, beschrieben wird"""
     def extract_person_areas(self,frame,background, people):
         person_areas = []
         height, width, _ = frame.shape

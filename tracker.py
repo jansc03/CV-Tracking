@@ -13,6 +13,9 @@ class Tracker:
         self.smoothing_window = smoothing_window  # Anzahl der letzten Frames, die für den Durchschnitt verwendet werden
         self.smoothing_buffers = {}
 
+    """Die Tracker Klasse enthält eine Liste aller Tracks(bei Abgabe zwei ist dies maximal einer),
+    In dieser Methode wird eine Boundingbox und ein Histogramm mitgegeben und daraus ein Track erstellt der dann zur
+    Liste hinzugefügt werden kann"""
     def add_track(self, bbox,hist):
         track_id = self.next_id
         self.tracks[self.next_id] = {
@@ -29,6 +32,8 @@ class Tracker:
         self.smoothing_buffers[track_id] = []
         self.next_id += 1
 
+    """Diese Methode hat für alle tracks eine Liste der Vergangenen Boundingboxen verwaltet und daraus
+    eine durchschnits Box ersttellt, welche genutzt werden konnte  um die Box flüssiger zu bewegen"""
     def apply_smoothing(self, track_id, bbox):
         if track_id not in self.smoothing_buffers:
             return bbox
@@ -41,6 +46,15 @@ class Tracker:
         avg_bbox = np.mean(self.smoothing_buffers[track_id], axis=0).astype(int)
 
         return tuple(avg_bbox)
+
+    """Diese Methode itteriert Anfangs durch alle Tracks und filter die heraus die seit längeren nicht mehr zugeordnet werden konnten.
+    Im nächsten abschnitt wird dann für jeden Track alle erkannten Personen durchsucht und alle passenden
+    (in der Nähe der letzten gefunden Bounding Box oder der Prediction und passendes Histogramm) abgespeichert.
+    Anschließend werden alle abgespeicherten Personen für den jeweiligen Track nach der am besten passenden Sortiert,
+    und dann die Boundingbox übernommen
+    Anschließend wird dann für jeden Track die Prediction noch geupdated.
+    Das histogramm eines Tracks wird nur angepasst wenn die änderungen zum durchschnitts Histogramm nicht zu groß sind.
+    (da sonst von einer Störung ausgegangen wird"""
 
     def update_track(self, detections,detection_areas_histogram):
         update_tracks = {}
@@ -57,7 +71,7 @@ class Tracker:
                 if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
                     cmp = self.compare_histogramm(det_area_hist,track)
                     bundle = det[2]>det[3]/2
-                    if cmp > 0.6 or bundle:
+                    if cmp > 0.6 or bundle:                  # Magic Number Wann eine Box als gleiche person erkannt wird
                         possible.append((det,cmp,bundle,det_area_hist))
             if len(possible) > 0:
                 pos = max(possible,key=lambda x: x[1])
@@ -65,7 +79,7 @@ class Tracker:
                 track["bbox"] = det
                 track["lost"] = 0
                 track["stable_frames"] += 1
-                if not bundle and cmp > 0.75:
+                if not bundle and cmp > 0.75:                 # Magic Number Wann man Histogramm hinzufügt
                     self.add_histogramm(det_hist, track)
                 if track["stable_frames"] >= self.activation_frames:
                     track["active"] = True
@@ -73,17 +87,23 @@ class Tracker:
         if len(self.tracks) < self.max_tracks and len(detections) > 0:
             self.add_track(detections[0],detection_areas_histogram[0])
 
+    """Fügt der Liste der gespeicherten Histogramme für einen Track ein weiters hinzu und entfernt falls nötig eines"""
     def add_histogramm(self,hist, track):
         track["histogram"].append(hist)
-        if len(track["histogram"])>=20:
+        if len(track["histogram"])>=20:                       # Magic Number Menge der genutzten Histogramme
             track["histogram"].pop(0)
 
+    """Vergleicht die drei Farbchannel der Histogramme und gibt die Durchschnittliche übereinstimmung zurück"""
     def compare_histogramm(self,det_area_hist,track):
         val = []
         for det_hist,track_hist in zip(det_area_hist,np.mean(track["histogram"],axis=0)):
             val.append(cv2.compareHist(det_hist,track_hist,cv2.HISTCMP_CORREL))
         return np.mean(val)
 
+    """Erstellt ein Histogramm für eine Person
+    hierbei wird für jeden Channel (Blau,Grün,Rot) ein eigenes erstellt.
+    Um möglichst wenig Hintergrundpixel mit aufzunehmen, wird eine Maske der Person,#
+     welche aus der Backgroundsubstraction entzogen wird genutzt """
     def get_hist(self,segment,mask):
         hist_b = cv2.calcHist([segment], [0], mask, [127], [1, 256])
         hist_g = cv2.calcHist([segment], [1], mask, [127], [1, 256])
@@ -94,17 +114,12 @@ class Tracker:
 
         return [hist_b, hist_g, hist_r]
 
-    def is_close(self, bbox1, bbox2, distance_threshold=200):
-        x1, y1, w1, h1 = bbox1
-        x2, y2, w2, h2 = bbox2
-
-        cx1, cy1 = x1 + w1 // 2, y1 + h1 // 2
-        cx2, cy2 = x2 + w2 // 2, y2 + h2 // 2
-        return np.sqrt((cx1 - cx2) ** 2 + (cy1 - cy2) ** 2) < distance_threshold
-
+    """Liefert alle Tracks aus der Liste der Klasse zurück die als Activ mackiert worden sind zurück,
+    dies Stellt die getrackten Personen dar"""
     def get_active_tracks(self):
         return {tid: t for tid, t in self.tracks.items() if t["active"]}
 
+    """wurde genutzt um die BOundingboxen flüßiger zwischen frames zu bewegen"""
     def refine_tracks_with_optical_flow(self, frame, old_frame):
         if len(self.get_active_tracks()) == 0:
             return
@@ -143,7 +158,11 @@ class Tracker:
                 track["bbox"] = smoothed_bbox
             self.predict_future_bbox(track)
 
-
+    """Errechnet Center der Boundingbox und übergibt dies den Kalmanfilter,
+     um mithilfe dessen eine Zukünftige Boundingbox zu Predicten,
+     als Breite und höhe für diese Boundingbox werden die Werte der letzten gefundenen Boundingbox genutzt.
+     Sollte Im letzten frame keine Passende Person Detectiert worden sein (Track["Lost"]>0) wird die Letzte prediction weiter genutzt
+     """
     def predict_future_bbox(self,track):
         if(track["lost"] < 1):
             track_bbox = track["bbox"]
@@ -180,6 +199,9 @@ class Tracker:
             track["prediction"] = (new_bbox_x, track_prediction[1], bbox_width, bbox_height)
 
 
+    """Dient als Alternative zum Kalmanfilter.
+    Hierbei wird einfach nur die Distanz der zentren genutzt um eine Richtung zu errechnen
+     und die neue Boundingbox in diese zu verschieben"""
     def simple_future_box_prediction(self,track):
         if (track["lost"] < 1):
             track_bbox = track["bbox"]
@@ -202,7 +224,8 @@ class Tracker:
         track["prediction"] = (new_bbox_x, new_bbox_y, new_bbox_width, new_bbox_height)
 
 
-    def is_close_or_overlap(self,bbox1, bbox2, threshold=50):
+    """Gleiche Methode wie beim detector"""
+    def is_close_or_overlap(self,bbox1, bbox2, threshold=50):           #Treshhold ist Magic Number für nähe der Boxen
         x1, y1, w1, h1 = bbox1
         x2, y2, w2, h2 = bbox2
 
