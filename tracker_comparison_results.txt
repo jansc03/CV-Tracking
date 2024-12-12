@@ -1,5 +1,0 @@
-Tracker Comparison Results
-==========================
-Mean IoU: 0.5608
-Min IoU: 0.2760
-Max IoU: 0.8457
