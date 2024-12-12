@@ -4,7 +4,7 @@ import cv2
 class VideoSupplier:
     def __init__(self):
         self.vids = [
-            "Vid/daraussen.mp4",                      #0
+            "Vid/daraussen.mp4",                      #0 Perfekt
             "Vid/gegenlicht.mp4",                     #1
             "Vid/gegenlicht_und_spiegel.mp4",         #2
             "Vid/gehend_zwei.mp4",                    #3
@@ -13,10 +13,13 @@ class VideoSupplier:
             "Vid/winkel.mp4",                         #6
             "Vid/stoerung.mp4",                       #7
             "Vid/2personen.mp4",                      #8
-            "Vid/2personen_verdeckt.mp4",             #9
-            "Vid/autos.mov",                          #10
+            "Vid/2personen_verdeckt.mp4",             #9 Hindernis
+            "Vid/autos.mov",                          #10 Bewegungs im Hintergrund
             "Vid/autos2.mp4",                          #11
-            "Vid/Schwer_weißer Hintergund mit weißen klamotten.mp4" #12
+            "Vid/Schwer_weißer Hintergund mit weißen klamotten.mp4", #12 Mehrer Personen
+            "Vid/Links-Rechts bewegung mit Helligkeitsunterschied.mp4", #13
+            "Vid/Vorne-Hinten.mp4", #14
+            "Vid/zuhause.mp4", #15
         ]
 
         self.caps = []  # Liste der VideoCapture-Objekte

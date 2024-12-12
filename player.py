@@ -36,7 +36,7 @@ class Player(pygame.sprite.Sprite):
 
     def draw_lives(self ,screen, lives, x=10, y=10):
         font = pygame.font.SysFont(None, 36)
-        text = font.render(f'Leben: {lives}', True, (255, 255, 255))
+        text = font.render(f'Leben: {lives}', True, (0, 0, 255))
         screen.blit(text, (x, y))
 
 

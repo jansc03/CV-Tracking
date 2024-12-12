@@ -40,9 +40,7 @@ clock = pygame.time.Clock()
 player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
 bullet = Player.Projektil(screen_height=SCREEN_HEIGHT)
 
-moving_entities = [
-    entity.MovingEntity(x=0, y=0, width=300, height=30, speed=5, row_height=50, SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT)
-]
+moving_entities = []
 
 # example variable for game score
 gameScore = 0
@@ -56,26 +54,28 @@ blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
 
 collision_check_timer = 0
-collision_check_interval = 800
+collision_check_interval = 1000
 fire_interval_ms = 500
 last_fire_time = 0
 cooldown_duration = 1000
 last_collision_time = 0
 
-n = 2
+n = 1
 
 backgroundSubtraction = bs.BackgroundSubtraction()
 #backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=True)
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=9)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=0)
 
 detector = dt.Detector()
 custom_tracker = tr.Tracker(max_lost=90)
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
 word = tr.Tracker()
-"""
+
 # Initialize YOLO tracker
 yolo_tracker = YOLOTracker(fps=fps)
-"""
+
+all_iou_values = []
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -125,6 +125,7 @@ while running:
                            track in yolo_tracks]
         """
 
+
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
 
@@ -139,7 +140,8 @@ while running:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
-            # player.update_position(x, y, w, h)
+            player.update_position(x, y, w, h)
+
             #IOU
             # Definiere den erweiterten Bereich für den YOLO-Tracker
             threshold = 100
@@ -168,6 +170,7 @@ while running:
 
 
 
+
         #imgRGB = cv2.cvtColor(fgMask, cv2.COLOR_BGR2RGB)
         # image needs to be rotated for pygame
 
@@ -180,27 +183,31 @@ while running:
         img_rgb = np.flip(img_rgb,axis=0)
         game_frame = pygame.surfarray.make_surface(img_rgb).convert()
         screen.blit(game_frame, (0, 0))
+
         """
-        iou.process_frame(yolo_tracker, custom_tracker, original_vid)
+        # Berechne IoU-Werte für den Frame und speichere sie
+        frame_iou_values = iou.process_frame(yolo_tracker, custom_tracker, original_vid)
+        all_iou_values.append(frame_iou_values)
         """
 
 
-
-        """
         'GAME'
         current_time = pygame.time.get_ticks()
         if current_time - collision_check_timer >= collision_check_interval:
             collision_check_timer = current_time
-            if frame_out is not None:
-                #player.lose_life()
-                print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
+            for moving_entity in moving_entities[:]:
+                if player.rect.colliderect(moving_entity.rect) and frame_out is not None:
+                    player.lose_life()
+                    print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
+                    moving_entities.pop()
 
         if current_time - last_fire_time >= fire_interval_ms:
             last_fire_time = current_time
             bullet.fire(player.rect.x, player.rect.y, player.rect.width)
 
-
         for moving_entity in moving_entities[:]:
+            moving_entity.update()
+            moving_entity.draw(screen)
             if bullet.rect.colliderect(moving_entity.rect):
                 if current_time - last_collision_time >= cooldown_duration:
                     print("Kollision erkannt!")
@@ -208,19 +215,18 @@ while running:
                     moving_entities.remove(moving_entity)
 
                     # Füge zwei neue Entitäten hinzu
-                    distance = 0
-                    if len(moving_entities) == 0:
-                        for _ in range(n):
-                            new_entity = entity.MovingEntity(
-                                x=0 + distance ,y=0 , width=100, height=30, speed=5, row_height=50,
-                                SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT
-                            )
-                            distance += 150
-                            moving_entities.append(new_entity)
-                        n += 1
+        distance = 0
+        if len(moving_entities) == 0:
+            for _ in range(n):
+                new_entity = entity.MovingEntity(
+                    x=0 + distance ,y=0 , width=120, height=80, speed=9, row_height=50,
+                        SCREEN_WIDTH=SCREEN_WIDTH, SCREEN_HEIGHT=SCREEN_HEIGHT
+                    )
+                distance += 150
+                moving_entities.append(new_entity)
+            n += 1
 
-            moving_entity.update()
-            moving_entity.draw(screen)
+
 
         bullet.update()
         bullet.draw(screen)
@@ -233,13 +239,20 @@ while running:
             running = False
 
         player.draw(screen)
-        """
+
         # update entire screen
         pygame.display.update()
         # set clock
         clock.tick(fps)
 
 # quit game
+
+"""
+IoU
+final_results = iou.aggregate_iou_results(all_iou_values)
+print(final_results)
+"""
+
 pygame.quit()
 backgroundSubtraction.closeAll()
 
