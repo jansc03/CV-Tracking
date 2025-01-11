@@ -20,6 +20,27 @@ class VideoSupplier:
             "Vid/Links-Rechts bewegung mit Helligkeitsunterschied.mp4", #13
             "Vid/Vorne-Hinten.mp4", #14
             "Vid/zuhause.mp4", #15
+            "Vid/2_Personen.mp4",                               #16
+            "Vid/2_Personen_init_erschweren.mp4",               #17
+            "Vid/2_Personen_spiel_sim.mp4",                     #18
+            "Vid/3_Personen.mp4",                               #19
+            "Vid/3_Personen_Hindernis.mp4",                     #20
+            "Vid/4_Personen.mp4",                               #21
+            "Vid/4_Personen_rein_raus.mp4",                     #22
+            "Vid/4_Personen_v2.mp4",                            #23
+            "Vid/5_Personen.mp4",                               #24
+            "Vid/6_Personen.mp4",                               #25
+            "Vid/6_Personen_v2.mp4",                            #26
+            "Vid/6_Personen_v3.mp4",                            #27
+            "Vid/7_Personen.mp4",                               #28
+            "Vid/Eingang_2_Personen_nah.mp4",                   #29
+            "Vid/Eingang_2_Personen_nah_v2.mp4",                #30
+            "Vid/Eingang_2_Personen_nah_v3.mp4",                #31
+            "Vid/Eingang_2_Personen_ueberholen.mp4",            #32
+            "Vid/Eingang_2_Personen_viele_Personen_im_hg.mp4",  #33
+            "Vid/Eingang_4_Personen_Polonaise.mp4",             #34
+            "Vid/Eingang_mir_wird_schwindelig_huiiiiiii.mp4",   #35
+            "Vid/Eingang_Nacheinander.mp4",                     #36
         ]
 
         self.caps = []  # Liste der VideoCapture-Objekte
