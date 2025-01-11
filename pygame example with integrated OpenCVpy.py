@@ -9,15 +9,15 @@ Thema: pygame example with integrated OpenCV
 import numpy as np
 import cv2
 import pygame
-from torch.ao.nn.quantized.functional import threshold
+#from torch.ao.nn.quantized.functional import threshold
 
 import background_subtraction as bs
 import detector as dt
 import tracker as tr
 import entity
 import player as Player
-import iou
-from yolo_tracker_integration import YOLOTracker
+#import iou
+#from yolo_tracker_integration import YOLOTracker
 
 SCREEN_WIDTH  = 1280
 SCREEN_HEIGHT = 720
@@ -63,7 +63,7 @@ last_collision_time = 0
 n = 1
 
 backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=0)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=9)
 
 detector = dt.Detector()
 custom_tracker = tr.Tracker(max_lost=90)
@@ -132,26 +132,25 @@ while running:
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
 
-
         # Visualisiere custom tracker
         for track_id, track in custom_tracker.get_active_tracks().items():
-
             if (track["lost"] > 0):
                 x, y, w, h = track["prediction"]
             else:
-                x, y, w, h = track["bbox"]
-            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                x, y, w, h = track["prediction"]
+            if 0<x<3000 and 0<y<3000:
+                cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
-            player.update_position(x, y, w, h)
+            #player.update_position(x, y, w, h)
 
-            #IOU
+            """#IOU
             # Definiere den erweiterten Bereich für den YOLO-Tracker
             threshold = 100
             extended_x1 = max(0, x - threshold)
             extended_y1 = max(0, y - threshold)
             extended_x2 = min(SCREEN_WIDTH, x + w + threshold)
-            extended_y2 = min(SCREEN_HEIGHT, y + h + threshold)
+            extended_y2 = min(SCREEN_HEIGHT, y + h + threshold)"""
 
             """
             # Filtere YOLO-Tracker-Ergebnisse basierend auf dem erweiterten Bereich
@@ -169,6 +168,7 @@ while running:
                 cv2.putText(frame_out, f"YOLO ID {track.id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0),
                             2)
             """
+
         # Frame konvertieren
         frame_out = cv2.cvtColor(frame_out, cv2.COLOR_BGR2RGB)
         img_rgb = np.rot90(frame_out)
@@ -183,7 +183,7 @@ while running:
         """
 
         'GAME'
-        # Kollisions abfrage fuer den Player
+        """# Kollisions abfrage fuer den Player
         current_time = pygame.time.get_ticks()
         if current_time - collision_check_timer >= collision_check_interval:
             collision_check_timer = current_time
@@ -229,7 +229,7 @@ while running:
             print("Spieler 1 hat alle Leben verloren! Spiel beendet.")
             running = False
 
-        player.draw(screen)
+        player.draw(screen)"""
 
         # update screen
         pygame.display.update()

@@ -3,7 +3,7 @@ import numpy as np
 import kalman_filter
 
 class Tracker:
-    def __init__(self, max_lost=30, activation_frames=0, max_tracks=1, height_smoothing=20, smoothing_window=4):
+    def __init__(self, max_lost=60, activation_frames=0, max_tracks=3, height_smoothing=20, smoothing_window=4):
         self.next_id = 0
         self.tracks = {}
         self.max_lost = max_lost
@@ -57,6 +57,7 @@ class Tracker:
     (da sonst von einer Störung ausgegangen wird"""
 
     def update_track(self, detections,detection_areas_histogram):
+        print("Start ")
         update_tracks = {}
         for track_id, track in self.tracks.items():
             track["lost"] += 1
@@ -73,6 +74,7 @@ class Tracker:
                     bundle = det[2]>det[3]/2
                     if cmp > 0.6 or bundle:                  # Magic Number Wann eine Box als gleiche person erkannt wird
                         possible.append((det,cmp,bundle,det_area_hist))
+
             if len(possible) > 0:
                 pos = max(possible,key=lambda x: x[1])
                 det,cmp,bundle,det_hist = pos
@@ -83,9 +85,16 @@ class Tracker:
                     self.add_histogramm(det_hist, track)
                 if track["stable_frames"] >= self.activation_frames:
                     track["active"] = True
+                if not bundle:
+                    i = detections.index(det)
+                    del detections[i]
+                    del detection_areas_histogram[i]
             self.predict_future_bbox(track)
+
         if len(self.tracks) < self.max_tracks and len(detections) > 0:
-            self.add_track(detections[0],detection_areas_histogram[0])
+            for det_id, det in enumerate(detections):
+                if det[2] < det[3]/2:
+                    self.add_track(detections[det_id],detection_areas_histogram[det_id])
 
     """Fügt der Liste der gespeicherten Histogramme für einen Track ein weiters hinzu und entfernt falls nötig eines"""
     def add_histogramm(self,hist, track):
@@ -164,6 +173,7 @@ class Tracker:
      Sollte Im letzten frame keine Passende Person Detectiert worden sein (Track["Lost"]>0) wird die Letzte prediction weiter genutzt
      """
     def predict_future_bbox(self,track):
+        print("predicting future bbox")
         if(track["lost"] < 1):
             track_bbox = track["bbox"]
 
@@ -183,20 +193,26 @@ class Tracker:
             track["prediction"] = (new_bbox_x, new_bbox_y, new_bbox_width, new_bbox_height)
         else:
             track_prediction = track["prediction"]
+
+
+            track_x = max(min(track_prediction[0], 10000),-100)
+            track_y = max(min(track_prediction[1], 10000),-100)
+
+
             track_last_bbox_size = track["bbox"]
 
             bbox_width = track_last_bbox_size[2]
             bbox_height = track_last_bbox_size[3]
 
             predicted_center = track["center_predicter"].predict(
-                track_prediction[0] + bbox_width // 2,
-                track_prediction[1] + bbox_height // 2
+                track_x + bbox_width // 2,
+                track_y + bbox_height // 2
             )
 
             new_bbox_x = int(predicted_center[0] - bbox_width // 2)
             new_bbox_y = int(track_prediction[1] - bbox_height // 2)
 
-            track["prediction"] = (new_bbox_x, track_prediction[1], bbox_width, bbox_height)
+            track["prediction"] = (new_bbox_x, track_y, bbox_width, bbox_height)
 
 
     """Dient als Alternative zum Kalmanfilter.
