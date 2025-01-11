@@ -63,7 +63,7 @@ last_collision_time = 0
 n = 1
 
 backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=9)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=8)
 
 detector = dt.Detector()
 custom_tracker = tr.Tracker(max_lost=90)
@@ -138,9 +138,8 @@ while running:
                 x, y, w, h = track["prediction"]
             else:
                 x, y, w, h = track["prediction"]
-            if 0<x<3000 and 0<y<3000:
-                cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
             #player.update_position(x, y, w, h)
 

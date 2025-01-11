@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import kalman_filter
+from kalman_filter import KalmanFilter
 
 class Tracker:
     def __init__(self, max_lost=60, activation_frames=0, max_tracks=3, height_smoothing=20, smoothing_window=4):
@@ -24,7 +24,7 @@ class Tracker:
             "stable_frames": 0,
             "active": False,
             "height_history": [],
-            "center_predicter":kalman_filter.KalmanFilter(),
+            "center_predicter":KalmanFilter(track_id),
             "prediction" : tuple([0,0,0,0]),
             "previous_center":tuple([0,0]),
             "histogram":[hist]
@@ -89,6 +89,7 @@ class Tracker:
                     i = detections.index(det)
                     del detections[i]
                     del detection_areas_histogram[i]
+
             self.predict_future_bbox(track)
 
         if len(self.tracks) < self.max_tracks and len(detections) > 0:
@@ -195,8 +196,8 @@ class Tracker:
             track_prediction = track["prediction"]
 
 
-            track_x = max(min(track_prediction[0], 10000),-100)
-            track_y = max(min(track_prediction[1], 10000),-100)
+            track_x = max(min(track_prediction[0], 10000),-1000)
+            track_y = max(min(track_prediction[1], 10000),-1000)
 
 
             track_last_bbox_size = track["bbox"]
