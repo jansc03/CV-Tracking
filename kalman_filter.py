@@ -21,7 +21,6 @@ class KalmanFilter:
 
     """Diese Methode gibt einmal die tatsächlichen Werte über, für den Kalmanfilter zum lernen und Predicted im anschluss die nächsten Werte"""
     def predict(self,coordX,coordY):
-        print(self.id)
         measured = np.array([[np.float32(coordX)], [np.float32(coordY)]])
         self.kf.correct(measured)
         predicted = self.kf.predict()

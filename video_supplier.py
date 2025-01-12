@@ -20,6 +20,8 @@ class VideoSupplier:
             "Vid/Links-Rechts bewegung mit Helligkeitsunterschied.mp4", #13
             "Vid/Vorne-Hinten.mp4", #14
             "Vid/zuhause.mp4", #15
+            "Vid/4_Personen.mp4",#16
+            "Vid/3_Personen.mp4",#17
         ]
 
         self.caps = []  # Liste der VideoCapture-Objekte

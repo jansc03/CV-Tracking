@@ -57,7 +57,6 @@ class Tracker:
     (da sonst von einer Störung ausgegangen wird"""
 
     def update_track(self, detections,detection_areas_histogram):
-        print("Start ")
         update_tracks = {}
         for track_id, track in self.tracks.items():
             track["lost"] += 1
@@ -93,9 +92,26 @@ class Tracker:
             self.predict_future_bbox(track)
 
         if len(self.tracks) < self.max_tracks and len(detections) > 0:
-            for det_id, det in enumerate(detections):
-                if det[2] < det[3]/2:
-                    self.add_track(detections[det_id],detection_areas_histogram[det_id])
+            to_add = self.get_addable_detection_id_from_leftover(detections)
+            if to_add != -1:
+                self.add_track(detections[to_add], detection_areas_histogram[to_add])
+
+    def get_addable_detection_id_from_leftover(self, detections):
+        possible = []
+        for det_id, det in enumerate(detections):
+            if det[2] < det[3]/2 and (det[0] < 200 or det[0] > 1000):  #keine sehr beiten detectionen werden hinzugefügt
+                possible.append(det_id)                                #+ nur am linken und rechtren rand werden neue akzeptiert
+
+        for id in possible:
+            for x,track in self.tracks.items():
+                if self.is_close_or_overlap(track["bbox"], detections[id],0,200):
+                    possible.remove(id)
+                    break
+
+        if(len(possible) > 0):
+            return possible[0]
+        else:
+            return -1
 
     """Fügt der Liste der gespeicherten Histogramme für einen Track ein weiters hinzu und entfernt falls nötig eines"""
     def add_histogramm(self,hist, track):
@@ -174,7 +190,6 @@ class Tracker:
      Sollte Im letzten frame keine Passende Person Detectiert worden sein (Track["Lost"]>0) wird die Letzte prediction weiter genutzt
      """
     def predict_future_bbox(self,track):
-        print("predicting future bbox")
         if(track["lost"] < 1):
             track_bbox = track["bbox"]
 
@@ -242,12 +257,12 @@ class Tracker:
 
 
     """Gleiche Methode wie beim detector"""
-    def is_close_or_overlap(self,bbox1, bbox2, threshold=50):           #Treshhold ist Magic Number für nähe der Boxen
+    def is_close_or_overlap(self,bbox1, bbox2, threshold1=50,threshold2 = 100):           #Treshhold ist Magic Number für nähe der Boxen
         x1, y1, w1, h1 = bbox1
         x2, y2, w2, h2 = bbox2
 
         # Rechtecke erweitern (Threshold) für "Nähe"
-        extended_bbox1 = (x1 - threshold, y1 - 2*threshold, w1 + 2 * threshold, h1 + 4 * threshold)
+        extended_bbox1 = (x1 - threshold1, y1 - threshold2, w1 + 2 * threshold1, h1 + 2 * threshold2)
 
         # Prüfen, ob bbox2 innerhalb der erweiterten bbox1 liegt
         return not (
