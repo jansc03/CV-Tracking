@@ -56,7 +56,7 @@ class Tracker:
     Das histogramm eines Tracks wird nur angepasst wenn die änderungen zum durchschnitts Histogramm nicht zu groß sind.
     (da sonst von einer Störung ausgegangen wird"""
 
-    def update_track(self, detections,detection_areas_histogram):
+    def update_track(self, detections, detection_areas_histogram):
         update_tracks = {}
         for track_id, track in self.tracks.items():
             track["lost"] += 1
@@ -67,27 +67,26 @@ class Tracker:
 
         for track_id, track in self.tracks.items():
             possible = []
-            for det,det_area_hist in zip(detections,detection_areas_histogram):
+            for det, det_area_hist in zip(detections, detection_areas_histogram):
                 if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
-                    cmp = self.compare_histogramm(det_area_hist,track)
-                    bundle = det[2]>det[3]/2
-                    if cmp > 0.6 or bundle:                  # Magic Number Wann eine Box als gleiche person erkannt wird
-                        possible.append((det,cmp,bundle,det_area_hist))
+                    cmp = self.compare_histogramm(det_area_hist, track)
+                    if cmp > 0.5:  # Threshold for matching
+                        possible.append((det, cmp, det_area_hist))
 
             if len(possible) > 0:
-                pos = max(possible,key=lambda x: x[1])
-                det,cmp,bundle,det_hist = pos
+                pos = max(possible, key=lambda x: x[1])
+                det, cmp, det_hist = pos
                 track["bbox"] = det
                 track["lost"] = 0
                 track["stable_frames"] += 1
-                if not bundle and cmp > 0.75:                 # Magic Number Wann man Histogramm hinzufügt
+                if cmp > 0.75:
                     self.add_histogramm(det_hist, track)
                 if track["stable_frames"] >= self.activation_frames:
                     track["active"] = True
-                if not bundle:
-                    i = detections.index(det)
-                    del detections[i]
-                    del detection_areas_histogram[i]
+
+                i = detections.index(det)
+                del detections[i]
+                del detection_areas_histogram[i]
 
             self.predict_future_bbox(track)
 
@@ -120,23 +119,53 @@ class Tracker:
             track["histogram"].pop(0)
 
     """Vergleicht die drei Farbchannel der Histogramme und gibt die Durchschnittliche übereinstimmung zurück"""
-    def compare_histogramm(self,det_area_hist,track):
-        val = []
-        for det_hist,track_hist in zip(det_area_hist,np.mean(track["histogram"],axis=0)):
-            val.append(cv2.compareHist(det_hist,track_hist,cv2.HISTCMP_CORREL))
-        return np.mean(val)
+    def compare_histogramm(self, det_area_hist, track):
+        upper_hist_det, lower_hist_det = det_area_hist
+        upper_hist_track, lower_hist_track = np.mean(track["histogram"], axis=0)
+
+        upper_similarity = np.mean([
+            cv2.compareHist(upper_hist_det[i], upper_hist_track[i], cv2.HISTCMP_CORREL)
+            for i in range(3)
+        ])
+
+        lower_similarity = np.mean([
+            cv2.compareHist(lower_hist_det[i], lower_hist_track[i], cv2.HISTCMP_CORREL)
+            for i in range(3)
+        ])
+
+        # Combine similarities with a weighted average
+        return 0.7 * upper_similarity + 0.4 * lower_similarity
+
 
     """Erstellt ein Histogramm für eine Person
     hierbei wird für jeden Channel (Blau,Grün,Rot) ein eigenes erstellt.
     Um möglichst wenig Hintergrundpixel mit aufzunehmen, wird eine Maske der Person,#
      welche aus der Backgroundsubstraction entzogen wird genutzt """
-    def get_hist(self,segment,mask):
+    def get_hist(self, segment, mask):
+        # Split the segment into upper and lower
+        height, width = segment.shape[:2]
+        mid_y = height // 2
+
+        upper_segment = segment[:mid_y, :]
+        lower_segment = segment[mid_y:, :]
+
+        upper_mask = mask[:mid_y, :]
+        lower_mask = mask[mid_y:, :]
+
+        # Calculate histograms for upper and lower segments
+        upper_hist = self.calc_hist(upper_segment, upper_mask)
+        lower_hist = self.calc_hist(lower_segment, lower_mask)
+
+        return [upper_hist, lower_hist]
+
+    def calc_hist(self, segment, mask):
         hist_b = cv2.calcHist([segment], [0], mask, [127], [1, 256])
         hist_g = cv2.calcHist([segment], [1], mask, [127], [1, 256])
         hist_r = cv2.calcHist([segment], [2], mask, [127], [1, 256])
-        cv2.normalize(hist_b,hist_b,0,255,cv2.NORM_MINMAX)
-        cv2.normalize(hist_g,hist_g,0,255,cv2.NORM_MINMAX)
-        cv2.normalize(hist_r,hist_r,0,255,cv2.NORM_MINMAX)
+
+        cv2.normalize(hist_b, hist_b, 0, 255, cv2.NORM_MINMAX)
+        cv2.normalize(hist_g, hist_g, 0, 255, cv2.NORM_MINMAX)
+        cv2.normalize(hist_r, hist_r, 0, 255, cv2.NORM_MINMAX)
 
         return [hist_b, hist_g, hist_r]
 

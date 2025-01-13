@@ -63,7 +63,7 @@ last_collision_time = 0
 n = 1
 
 backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=12)
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=3)
 
 detector = dt.Detector()
 custom_tracker = tr.Tracker(max_lost=90)
