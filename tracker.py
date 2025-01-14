@@ -3,7 +3,7 @@ import numpy as np
 from kalman_filter import KalmanFilter
 
 class Tracker:
-    def __init__(self, max_lost=60, activation_frames=0, max_tracks=3, height_smoothing=20, smoothing_window=4):
+    def __init__(self, max_lost=60, activation_frames=0, max_tracks=2, height_smoothing=20, smoothing_window=4):
         self.next_id = 0
         self.tracks = {}
         self.max_lost = max_lost
@@ -32,21 +32,6 @@ class Tracker:
         self.smoothing_buffers[track_id] = []
         self.next_id += 1
 
-    """Diese Methode hat für alle tracks eine Liste der Vergangenen Boundingboxen verwaltet und daraus
-    eine durchschnits Box ersttellt, welche genutzt werden konnte  um die Box flüssiger zu bewegen"""
-    def apply_smoothing(self, track_id, bbox):
-        if track_id not in self.smoothing_buffers:
-            return bbox
-
-        self.smoothing_buffers[track_id].append(bbox)
-
-        if len(self.smoothing_buffers[track_id]) > self.smoothing_window:
-            self.smoothing_buffers[track_id].pop(0)
-
-        avg_bbox = np.mean(self.smoothing_buffers[track_id], axis=0).astype(int)
-
-        return tuple(avg_bbox)
-
     """Diese Methode itteriert Anfangs durch alle Tracks und filter die heraus die seit längeren nicht mehr zugeordnet werden konnten.
     Im nächsten abschnitt wird dann für jeden Track alle erkannten Personen durchsucht und alle passenden
     (in der Nähe der letzten gefunden Bounding Box oder der Prediction und passendes Histogramm) abgespeichert.
@@ -70,7 +55,7 @@ class Tracker:
             for det, det_area_hist in zip(detections, detection_areas_histogram):
                 if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
                     cmp = self.compare_histogramm(det_area_hist, track)
-                    if cmp > 0.5:  # Threshold for matching
+                    if cmp > 0.7:  # Threshold for matching
                         possible.append((det, cmp, det_area_hist))
 
             if len(possible) > 0:
@@ -134,7 +119,7 @@ class Tracker:
         ])
 
         # Combine similarities with a weighted average
-        return 0.7 * upper_similarity + 0.4 * lower_similarity
+        return 0.8 * upper_similarity + 0.4 * lower_similarity
 
 
     """Erstellt ein Histogramm für eine Person
@@ -174,45 +159,6 @@ class Tracker:
     def get_active_tracks(self):
         return {tid: t for tid, t in self.tracks.items() if t["active"]}
 
-    """wurde genutzt um die BOundingboxen flüßiger zwischen frames zu bewegen"""
-    def refine_tracks_with_optical_flow(self, frame, old_frame):
-        if len(self.get_active_tracks()) == 0:
-            return
-
-        old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
-        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        try:
-            p0 = np.array([[[track["bbox"][0] + track["bbox"][2] // 2,
-                             track["bbox"][1] + track["bbox"][3] // 2]]
-                           for track in self.get_active_tracks().values()
-                           if "bbox" in track], dtype=np.float32)
-        except ValueError as e:
-            print("Fehler bei der Verarbeitung der Bounding-Boxen:", e)
-            print("Datenstruktur:", self.get_active_tracks())
-            return
-
-        lk_params = dict(winSize=(15, 15),
-                         maxLevel=2,
-                         criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-
-        p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
-
-        for i, (track_id, track) in enumerate(self.get_active_tracks().items()):
-            if st[i] == 1:
-                new_cx, new_cy = p1[i][0]
-                old_cx, old_cy = p0[i][0]
-                dx, dy = int(new_cx - old_cx), int(new_cy - old_cy)
-                x, y, w, h = track["bbox"]
-
-                # Update bounding box
-                track["bbox"] = (x + dx, y + dy, w, h)
-
-                #Glätten
-                smoothed_bbox = self.apply_smoothing(track_id, track["bbox"])
-                track["bbox"] = smoothed_bbox
-            self.predict_future_bbox(track)
-
     """Errechnet Center der Boundingbox und übergibt dies den Kalmanfilter,
      um mithilfe dessen eine Zukünftige Boundingbox zu Predicten,
      als Breite und höhe für diese Boundingbox werden die Werte der letzten gefundenen Boundingbox genutzt.
@@ -221,39 +167,28 @@ class Tracker:
     def predict_future_bbox(self,track):
         if(track["lost"] < 1):
             track_bbox = track["bbox"]
-
             bbox_width = track_bbox[2]
             bbox_height = track_bbox[3]
-
             predicted_center = track["center_predicter"].predict(
                 track_bbox[0] + track_bbox[2] // 2,
                 track_bbox[1] + track_bbox[3] // 2
             )
-
             new_bbox_x = int(predicted_center[0] - bbox_width // 2)
             new_bbox_y = int(predicted_center[1] - bbox_height // 2)
             new_bbox_width = bbox_width
             new_bbox_height = bbox_height
-
             track["prediction"] = (new_bbox_x, new_bbox_y, new_bbox_width, new_bbox_height)
         else:
             track_prediction = track["prediction"]
-
-
             track_x = max(min(track_prediction[0], 10000),-1000)
             track_y = max(min(track_prediction[1], 10000),-1000)
-
-
             track_last_bbox_size = track["bbox"]
-
             bbox_width = track_last_bbox_size[2]
             bbox_height = track_last_bbox_size[3]
-
             predicted_center = track["center_predicter"].predict(
                 track_x + bbox_width // 2,
                 track_y + bbox_height // 2
             )
-
             new_bbox_x = int(predicted_center[0] - bbox_width // 2)
             new_bbox_y = int(track_prediction[1] - bbox_height // 2)
 
