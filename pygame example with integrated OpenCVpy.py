@@ -38,6 +38,7 @@ pygame.display.set_caption("Computer Vision Game")
 fps = 30
 clock = pygame.time.Clock()
 player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
+player2 = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
 bullet = Player.Projektil(screen_height=SCREEN_HEIGHT)
 
 moving_entities = []
@@ -82,7 +83,7 @@ def handle_player_collisions():
     if current_time - collision_check_timer >= collision_check_interval:
         collision_check_timer = current_time
         for moving_entity in moving_entities[:]:
-            if player.rect.colliderect(moving_entity.rect):
+            if player.rect.colliderect(moving_entity.rect) or player2.rect.colliderect(moving_entity.rect):
                 player.lose_life()
                 print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
                 moving_entities.remove(moving_entity)
@@ -95,6 +96,7 @@ def handle_bullet_firing():
     if current_time - last_fire_time >= fire_interval_ms:
         last_fire_time = current_time
         bullet.fire(player.rect.x, player.rect.y, player.rect.width)
+        bullet.fire(player2.rect.x, player2.rect.y, player2.rect.width)
         print(player.rect.x, player.rect.y, player.rect.width)
 
 
@@ -136,6 +138,7 @@ def draw_game_objects():
 
     player.draw_lives(screen, player.lives)
     player.draw(screen)
+    player2.draw(screen)
 
 
 def check_player_status():
@@ -209,7 +212,6 @@ while running:
                            track in yolo_tracks]
         """
 
-
         # Speichere den aktuellen Frame als vorherigen
         previous_frame = frame_out.copy()
 
@@ -221,7 +223,9 @@ while running:
                 x, y, w, h = track["bbox"]
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+
             player.update_position(x, y, w, h)
+            player2.update_position(x, y, w, h)
 
             """#IOU
             # Definiere den erweiterten Bereich für den YOLO-Tracker
