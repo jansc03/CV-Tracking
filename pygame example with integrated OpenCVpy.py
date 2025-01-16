@@ -64,8 +64,10 @@ last_collision_time = 0
 n = 1
 
 backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=2)
-
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=2) #17: Phillip bleibt lange Id=3 alles andere ist katastrophe
+                                                                                   #18: K.a. wie aber es läuft extrem gut
+                                                                                   #19: Katastrophe
+                                                                                   #20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
 detector = dt.Detector()
 custom_tracker = tr.Tracker(max_lost=90)
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
@@ -183,9 +185,13 @@ while running:
 
         people,all_contours = detector.detect(background)
 
+
         """Alle Personen im Frame werden Detektiert"""
         frame_out = original_vid.copy()
         person_areas = detector.extract_person_areas(original_vid,background, people)
+
+        for x,y,w,h in people:
+            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 255, 0), 2)
 
 
 
@@ -219,7 +225,9 @@ while running:
 
         # Visualisiere custom tracker
         for track_id, track in custom_tracker.get_active_tracks().items():
-            if (track["lost"] > 0):
+            if track["in_group"]:
+                x, y, w, h = track["group_bbox"]
+            elif (track["lost"] > 0):
                 x, y, w, h = track["prediction"]
             else:
                 x, y, w, h = track["bbox"]

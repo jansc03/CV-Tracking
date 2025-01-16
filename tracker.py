@@ -4,6 +4,8 @@ from scipy.optimize import linear_sum_assignment
 
 from kalman_filter import KalmanFilter
 
+from iou import calculate_iou
+
 class Tracker:
     def __init__(self, max_lost=60, activation_frames=0, max_tracks=3, height_smoothing=20, smoothing_window=4):
         self.next_id = 0
@@ -22,6 +24,8 @@ class Tracker:
         track_id = self.next_id
         self.tracks[self.next_id] = {
             "bbox": tuple(map(int, bbox)),
+            "group_bbox": tuple([0,0,0,0]),
+            "in_group": False,
             "lost": 0,
             "stable_frames": 0,
             "active": False,
@@ -59,19 +63,35 @@ class Tracker:
     (da sonst von einer Störung ausgegangen wird"""
 
     def update_track(self, detections, detection_areas_histogram):
-        """
-        Aktualisiert die Tracks basierend auf Detektionen und Zuordnung per Hungarian Algorithmus.
-        Unübereinstimmende Detektionen werden separat verarbeitet, um potenzielle neue Tracks hinzuzufügen.
-        """
+
+        wide_detections = []
+        wide_detections_hist = []
+        filtered_detections = []
+        filtered_histograms = []
+
+        """Filtern von Wahrscheinlich mehreren Personen"""
+        for det, det_hist in zip(detections, detection_areas_histogram):
+            if det[2] > det[3] / 1.5:  # Breite > Teil der Höhe
+                wide_detections.append(det)
+                wide_detections_hist.append(det_hist)
+            else:
+                filtered_detections.append(det)
+                filtered_histograms.append(det_hist)
+
+        detections = filtered_detections
+        detection_areas_histogram = filtered_histograms
+
         # Tracks als Liste
         track_list = list(self.tracks.values())
         track_ids = list(self.tracks.keys())
 
-        # Hungarian Algorithmus anwenden
+
+        """Hier werden die Tracks den Detektionen zugeordnet """
         matches, unmatched_tracks, unmatched_detections = self.associate_detections_to_tracks(
             detections, detection_areas_histogram, track_list
         )
 
+        """Die gefundenen Matches zwischen Detektion und Tracks werden verarbeiten => Track Daten werden aktualisiert"""
         # Matches verarbeiten
         for track_idx, detection_idx in matches:
             track_id = track_ids[track_idx]
@@ -80,6 +100,7 @@ class Tracker:
 
             track = self.tracks[track_id]
             track["bbox"] = detection
+            track["in_group"] = False
             track["lost"] = 0
             track["stable_frames"] += 1
 
@@ -91,10 +112,43 @@ class Tracker:
             if track["stable_frames"] >= self.activation_frames:
                 track["active"] = True
 
+        """Sollten Tracks nicht zugeordnet werden können wird geschaut ob sich in ihrer nähe eine Gruppe Befindet"""
+        for track_idx in unmatched_tracks:
+            track_id = track_ids[track_idx]
+            track = self.tracks[track_id]
+
+            for det in wide_detections:
+                if (self.is_close_or_overlap(track["bbox"], det,0,0) or
+                        self.is_close_or_overlap(track["group_bbox"],det,0,0)):  # Überprüfen auf iou
+                    track["group_bbox"] = det
+                    track["lost"] = 0
+                    track["in_group"] = True
+                    track["stable_frames"] += 1
+                    unmatched_tracks.remove(track_idx)
+                    break
+
+        """SOllten abschließend immernoch tracks nicht zugeordnet werden können wird hier nochmal geschaut ob dieser gerade in einer gruppe war
+         und wenn dies der Fall ist und nun an der Stelle ein Tracks ist wird vermutet das diese gruppe sich verkleinert hat/ einer vor den anderen gegangen ist"""
+        for track_idx in unmatched_tracks:
+            track_id = track_ids[track_idx]
+            track = self.tracks[track_id]
+
+            if(track["in_group"]):
+                for det in detections:
+                    if (calculate_iou(track["group_bbox"],det) > 0.8):  # Überprüfen auf iou
+                        track["group_bbox"] = det
+                        track["lost"] = 0
+                        track["in_group"] = True
+                        track["stable_frames"] += 1
+                        unmatched_tracks.remove(track_idx)
+                        break
+
+
         # Unmatched Tracks verarbeiten (als verloren markieren)
         for track_idx in unmatched_tracks:
             track_id = track_ids[track_idx]
             self.tracks[track_id]["lost"] += 1
+            self.tracks[track_id]["in_group"] = False
 
         # Verlorene Tracks löschen
         self.tracks = {
@@ -105,21 +159,18 @@ class Tracker:
 
         # Unmatched Detektionen verarbeiten (neue Tracks hinzufügen)
         if len(self.tracks) < self.max_tracks and len(unmatched_detections) > 0:
-            # Finde eine hinzufügbare Detektion unter den Übrigen
             to_add = self.get_addable_detection_id_from_leftover(
                 [detections[idx] for idx in unmatched_detections]
             )
             if to_add != -1:
-                # Hinzufügbare Detektion identifizieren und hinzufügen
                 actual_index = unmatched_detections[to_add]
                 self.add_track(detections[actual_index], detection_areas_histogram[actual_index])
 
-        # Vorhersagen für alle Tracks berechnen
         for track in self.tracks.values():
             self.predict_future_bbox(track)
 
     """Ordnet Detektionen den bestehenden Tracks zu basierend auf Hungarian Algorithmus"""
-    def associate_detections_to_tracks(self,detections, detection_areas_histogram, tracks, cost_threshold=0.5):
+    def associate_detections_to_tracks(self,detections, detection_areas_histogram, tracks, cost_threshold=0.4): #magic number
         if len(tracks) == 0 or len(detections) == 0:
             return [], list(range(len(tracks))), list(range(len(detections)))
 
@@ -138,6 +189,11 @@ class Tracker:
         unmatched_detections = list(range(len(detections)))
 
         for t, d in zip(track_indices, detection_indices):
+            # Zusätzliche Überprüfung: Nähe von Track und Detektion
+            track_bbox = tracks[t]["bbox"]
+            detection_bbox = detections[d]
+
+            # Überprüfung der Kosten und Nähe
             if cost_matrix[t, d] < cost_threshold:
                 matches.append((t, d))
                 unmatched_tracks.remove(t)
@@ -149,13 +205,15 @@ class Tracker:
 
         histogram_similarity = self.compare_histogramm(detection_hist, track)
 
-        bbox_overlap = self.is_close_or_overlap(track["bbox"], detection)
-        prediction_overlap = self.is_close_or_overlap(track["prediction"], detection)
+        bbox_overlap = calculate_iou(track["bbox"], detection)
+        prediction_overlap = calculate_iou(track["prediction"], detection)
+        if(track["in_group"]):
+            bbox_overlap = 0.5*self.is_close_or_overlap(track["group_bbox"], detection,0,0)
 
         cost = 1 - (
-                0.5 * histogram_similarity +  # Histogramm: 50%
-                0.25 * bbox_overlap +  # Bounding Box Überlappung: 25%
-                0.25 * use_prediction_weight * prediction_overlap  # Prediction Überlappung: 25% mit Gewichtung
+                0.6 * histogram_similarity +  # Histogramm: 60%
+                0.20 * bbox_overlap +  # Bounding Box Überlappung: 20%
+                0.20 * use_prediction_weight * prediction_overlap  # Prediction Überlappung: 20% mit Gewichtung
         )
         return cost
 
