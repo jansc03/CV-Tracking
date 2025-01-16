@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
+
 from kalman_filter import KalmanFilter
+from scipy.optimize import linear_sum_assignment
+
 
 class Tracker:
     def __init__(self, max_lost=60, activation_frames=0, max_tracks=3, height_smoothing=20, smoothing_window=4):
@@ -56,45 +59,106 @@ class Tracker:
     Das histogramm eines Tracks wird nur angepasst wenn die änderungen zum durchschnitts Histogramm nicht zu groß sind.
     (da sonst von einer Störung ausgegangen wird"""
 
-    def update_track(self, detections,detection_areas_histogram):
-        update_tracks = {}
-        for track_id, track in self.tracks.items():
-            track["lost"] += 1
-            if track["lost"] <= self.max_lost:
-                update_tracks[track_id] = track
+    def update_track(self, detections, detection_areas_histogram):
 
-        self.tracks = update_tracks
+        "TODO: Detectionen die mehrere personen darstellen = breit sind. Anfangs herausfiltern und im anschluss übrig gebliebende Tracks zuordnen"
+        ("TODO: Wenn eine Person in einer Gruppe/ größeren detektion verschwindet sollte das matchen etwas anders ablaufen,"
+         "vorallem beim wieder austreten aus der gruppe kann es schwer sein die gesuchte person wieder zu erkennen")
+        track_list = list(self.tracks.values())
+        track_ids = list(self.tracks.keys())
 
-        for track_id, track in self.tracks.items():
-            possible = []
-            for det,det_area_hist in zip(detections,detection_areas_histogram):
-                if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
-                    cmp = self.compare_histogramm(det_area_hist,track)
-                    bundle = det[2]>det[3]/2
-                    if cmp > 0.6 or bundle:                  # Magic Number Wann eine Box als gleiche person erkannt wird
-                        possible.append((det,cmp,bundle,det_area_hist))
+        # Hungarian Algorithmus von scipy
+        matches, unmatched_tracks, unmatched_detections = self.asosciate_detections_to_tracks(
+            detections, detection_areas_histogram, track_list
+        )
 
-            if len(possible) > 0:
-                pos = max(possible,key=lambda x: x[1])
-                det,cmp,bundle,det_hist = pos
-                track["bbox"] = det
-                track["lost"] = 0
-                track["stable_frames"] += 1
-                if not bundle and cmp > 0.75:                 # Magic Number Wann man Histogramm hinzufügt
-                    self.add_histogramm(det_hist, track)
-                if track["stable_frames"] >= self.activation_frames:
-                    track["active"] = True
-                if not bundle:
-                    i = detections.index(det)
-                    del detections[i]
-                    del detection_areas_histogram[i]
+        for track_idx, detection_idx in matches: #tracks mit den gemachten detections aktualisieren
+            track_id = track_ids[track_idx]
+            detection = detections[detection_idx]
+            detection_hist = detection_areas_histogram[detection_idx]
 
+            track = self.tracks[track_id]
+            track["bbox"] = detection
+            track["lost"] = 0
+            track["stable_frames"] += 1
+
+            # Histogramm speichern, wenn keine große veränderung zum letzten besteht
+            if self.compare_histogramm(detection_hist, track) > 0.75:  # Magic Number
+                self.add_histogramm(detection_hist, track)
+
+            if track["stable_frames"] >= self.activation_frames:   # Wenn ein track oft genug gefunden wurde wird er als relevant gesehen
+                track["active"] = True                             # und dann später auch zurückgegeben
+
+        # Unmatched Tracks verarbeiten (als verloren markieren)
+        for track_idx in unmatched_tracks:
+            track_id = track_ids[track_idx]
+            self.tracks[track_id]["lost"] += 1
+
+        self.tracks = {                  # tracks die lange nicht gematched wurden löschen
+            track_id: track
+            for track_id, track in self.tracks.items()
+            if track["lost"] <= self.max_lost
+        }
+
+        # Unmatched Detektionen verarbeiten (neue Tracks hinzufügen)
+        if len(self.tracks) < self.max_tracks and len(unmatched_detections) > 0:
+            # Finde eine hinzufügbare Detektion unter den Übrigen
+            to_add = self.get_addable_detection_id_from_leftover(
+                [detections[idx] for idx in unmatched_detections]
+            )
+            if to_add != -1:
+                # Hinzufügbare Detektion identifizieren und hinzufügen
+                actual_index = unmatched_detections[to_add]
+                self.add_track(detections[actual_index], detection_areas_histogram[actual_index])
+
+        # Vorhersagen für alle Tracks berechnen
+        for track in self.tracks.values():
             self.predict_future_bbox(track)
 
-        if len(self.tracks) < self.max_tracks and len(detections) > 0:
-            to_add = self.get_addable_detection_id_from_leftover(detections)
-            if to_add != -1:
-                self.add_track(detections[to_add], detection_areas_histogram[to_add])
+    """
+    Berechnet die ähnlichkeit basierend auf Histogram und überlappung.
+    """
+    def calculate_similarity(self, track, detection, detection_hist, use_prediction_weight=1.5):
+        "TODO: IOU ist nicht gerade sehr schlau wenn wir mit bounding boxenn  von gruppen arbeitehier sollte eventuell noch etwas geändert werden"
+        histogram_similarity = self.compare_histogramm(detection_hist, track)
+
+        bbox_overlap = self.calculate_iou_overlap(track["bbox"],detection)
+        prediction_overlap =  self.calculate_iou_overlap(track["prediction"],detection)
+
+        cost = 1 - (
+                0.5 * histogram_similarity + #histogramm ist am wichtigsten
+                0.25 * bbox_overlap +
+                0.25 * use_prediction_weight * prediction_overlap #vorhersage box hat auch leicht erhöhtes gewicht
+        )
+        return cost
+
+    """
+    Ordnet Detektionen den bestehenden Tracks zu basierend auf Hungarian Algorithmus.
+    """
+    def asosciate_detections_to_tracks(self, detections, detection_areas_histogram, tracks, cost_threshold=0.6):
+        if len(tracks) == 0 or len(detections) == 0:
+            return [], list(range(len(tracks))), list(range(len(detections)))
+
+        cost_matrix = np.zeros((len(tracks), len(detections)))  # Kostenmatrix vorbereiten
+
+        for t, track in enumerate(tracks):
+            for d, (detection, detection_hist) in enumerate(zip(detections, detection_areas_histogram)): # Kostenmatrix berechnen
+                cost_matrix[t, d] = self.calculate_similarity(track, detection, detection_hist)
+
+        # Hungarian Algorithmus anwenden
+        track_indices, detection_indices = linear_sum_assignment(cost_matrix)
+
+        matches = []
+        unmatched_tracks = list(range(len(tracks)))
+        unmatched_detections = list(range(len(detections)))
+
+        for t, d in zip(track_indices, detection_indices):
+            if cost_matrix[t, d] < cost_threshold:  # Nur gültige Matches zulassen
+                matches.append((t, d))
+                unmatched_tracks.remove(t)
+                unmatched_detections.remove(d)
+
+        return matches, unmatched_tracks, unmatched_detections
 
     def get_addable_detection_id_from_leftover(self, detections):
         possible = []
@@ -271,3 +335,33 @@ class Tracker:
                 y2 + h2 < extended_bbox1[1] or  # bbox2 unterhalb von bbox1
                 y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
         )
+
+    def calculate_iou_overlap(self,box1, box2):
+
+        # Koordinaten der oberen linken und unteren rechten Ecke der Boxen berechnen
+        x1_min, y1_min = box1[0], box1[1]
+        x1_max, y1_max = x1_min + box1[2], y1_min + box1[3]
+
+        x2_min, y2_min = box2[0], box2[1]
+        x2_max, y2_max = x2_min + box2[2], y2_min + box2[3]
+
+        # Koordinaten des Schnittrechtecks (Intersection) berechnen
+        inter_x_min = max(x1_min, x2_min)
+        inter_y_min = max(y1_min, y2_min)
+        inter_x_max = min(x1_max, x2_max)
+        inter_y_max = min(y1_max, y2_max)
+
+        # Breite und Höhe des Schnittrechtecks berechnen
+        inter_width = max(0, inter_x_max - inter_x_min)
+        inter_height = max(0, inter_y_max - inter_y_min)
+
+        # Fläche der Intersection und der Union berechnen
+        intersection_area = inter_width * inter_height
+        box1_area = box1[2] * box1[3]
+        box2_area = box2[2] * box2[3]
+        union_area = box1_area + box2_area - intersection_area
+
+        # IoU berechnen (Verhältnis der Intersection zur Union)
+        if union_area == 0:
+            return 0  # Sonderfall: keine Fläche
+        return intersection_area / union_area
