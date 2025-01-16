@@ -43,6 +43,16 @@ class Detector:
                     break
         potentialPerson = []
 
+        for cp, ca in contour:
+            for pp, pa in contour:
+                if self.is_close_or_overlap(pp, cp,0,200) and (pp,pa) != (cp,ca):
+                    merge = (np.array(pp), np.array(cp))
+                    contour.append((self.merge_bounding_boxes(merge), pa + ca))
+                    contour.remove((cp, ca))
+                    contour.remove((pp, pa))
+                    break
+
+
         for cnt,cnt_area in contour:
             x, y, w, h = cnt
             aspect_ratio = float(w) / h
@@ -64,12 +74,12 @@ class Detector:
     Boundingboxen und dass anschließende vergleichen auf überlappungen.
     Hierbei werden die Boundingboxen in der Vertikalen doppelt so weit gestereckt wie ind der Vertikalen,
      sie dürfen also horizontal weiter auseinander liegen als vertikal"""
-    def is_close_or_overlap(self,bbox1, bbox2, threshold=50):
+    def is_close_or_overlap(self,bbox1, bbox2, threshold1=50,threshold2 = 100):           #Treshhold ist Magic Number für nähe der Boxen
         x1, y1, w1, h1 = bbox1
         x2, y2, w2, h2 = bbox2
 
         # Rechtecke erweitern (Threshold) für "Nähe"
-        extended_bbox1 = (x1 - threshold, y1 - 2*threshold, w1 + 2 * threshold, h1 + 4 * threshold)
+        extended_bbox1 = (x1 - threshold1, y1 - threshold2, w1 + 2 * threshold1, h1 + 2 * threshold2)
 
         # Prüfen, ob bbox2 innerhalb der erweiterten bbox1 liegt
         return not (

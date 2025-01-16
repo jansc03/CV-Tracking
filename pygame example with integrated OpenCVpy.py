@@ -187,6 +187,8 @@ while running:
         frame_out = original_vid.copy()
         person_areas = detector.extract_person_areas(original_vid,background, people)
 
+
+
         """Histogramme für die Detektierten Personen werden erstellt"""
         person_hist = []
         for person,background in person_areas:
@@ -224,8 +226,8 @@ while running:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
-            player.update_position(x, y, w, h)
-            player2.update_position(x, y, w, h)
+            """player.update_position(x, y, w, h)
+            player2.update_position(x, y, w, h)"""
 
             """#IOU
             # Definiere den erweiterten Bereich für den YOLO-Tracker
@@ -266,7 +268,7 @@ while running:
         """
 
         'GAME'
-        game_logic()
+        """game_logic()"""
 
         # update screen
         pygame.display.update()

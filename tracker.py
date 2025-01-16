@@ -119,26 +119,67 @@ class Tracker:
         if len(track["histogram"])>=20:                       # Magic Number Menge der genutzten Histogramme
             track["histogram"].pop(0)
 
-    """Vergleicht die drei Farbchannel der Histogramme und gibt die Durchschnittliche übereinstimmung zurück"""
-    def compare_histogramm(self,det_area_hist,track):
-        val = []
-        for det_hist,track_hist in zip(det_area_hist,np.mean(track["histogram"],axis=0)):
-            val.append(cv2.compareHist(det_hist,track_hist,cv2.HISTCMP_CORREL))
-        return np.mean(val)
-
     """Erstellt ein Histogramm für eine Person
     hierbei wird für jeden Channel (Blau,Grün,Rot) ein eigenes erstellt.
     Um möglichst wenig Hintergrundpixel mit aufzunehmen, wird eine Maske der Person,#
      welche aus der Backgroundsubstraction entzogen wird genutzt """
-    def get_hist(self,segment,mask):
-        hist_b = cv2.calcHist([segment], [0], mask, [127], [1, 256])
-        hist_g = cv2.calcHist([segment], [1], mask, [127], [1, 256])
-        hist_r = cv2.calcHist([segment], [2], mask, [127], [1, 256])
-        cv2.normalize(hist_b,hist_b,0,255,cv2.NORM_MINMAX)
-        cv2.normalize(hist_g,hist_g,0,255,cv2.NORM_MINMAX)
-        cv2.normalize(hist_r,hist_r,0,255,cv2.NORM_MINMAX)
+    def get_hist(self, segment, mask):
+        # Split the segment into upper and lower
+        height, width = segment.shape[:2]
+        mid_y = height // 2
 
-        return [hist_b, hist_g, hist_r]
+        upper_segment = segment[:mid_y, :]
+        lower_segment = segment[mid_y:, :]
+
+        upper_mask = mask[:mid_y, :]
+        lower_mask = mask[mid_y:, :]
+
+        # Calculate histograms for upper and lower segments
+        upper_hist = self.calc_hist(upper_segment, upper_mask)
+        lower_hist = self.calc_hist(lower_segment, lower_mask)
+
+        return [upper_hist, lower_hist]
+
+    def calc_hist(self, segment, mask):
+        # Konvertiere Segment auf HSV
+        hsv_segment = cv2.cvtColor(segment, cv2.COLOR_BGR2HSV)
+
+        # Erstelle Histogramme für H, S und V
+        hist_h = cv2.calcHist([hsv_segment], [0], mask, [127], [0, 180])
+        hist_s = cv2.calcHist([hsv_segment], [1], mask, [127], [0, 256])
+        hist_v = cv2.calcHist([hsv_segment], [2], mask, [127], [0, 256])
+
+        # Normalisiere Histogramme
+        cv2.normalize(hist_h, hist_h, 0, 255, cv2.NORM_MINMAX)
+        cv2.normalize(hist_s, hist_s, 0, 255, cv2.NORM_MINMAX)
+        cv2.normalize(hist_v, hist_v, 0, 255, cv2.NORM_MINMAX)
+
+        return [hist_h, hist_s, hist_v]
+
+    """Vergleicht die drei Farbchannel der Histogramme und gibt die Durchschnittliche übereinstimmung zurück"""
+
+    def compare_histogramm(self, det_area_hist, track):
+        upper_hist_det, lower_hist_det = det_area_hist
+        upper_hist_track, lower_hist_track = np.mean(track["histogram"], axis=0)
+
+        # Berechne Ähnlichkeit für H, S und V
+        def weighted_similarity(det, track, weights):
+            return sum(
+                weights[i] * cv2.compareHist(det[i], track[i], cv2.HISTCMP_CORREL)
+                for i in range(3)
+            )
+
+        # Gewichtung: H, dann S, dann V
+        weights = [0.7, 0.3, 0.2]
+
+        upper_similarity = weighted_similarity(upper_hist_det, upper_hist_track, weights)
+        lower_similarity = weighted_similarity(lower_hist_det, lower_hist_track, weights)
+
+        # Kombiniere obere und untere Ähnlichkeit
+        return 0.8 * upper_similarity + 0.5 * lower_similarity
+
+    """Liefert alle Tracks aus der Liste der Klasse zurück die als Activ mackiert worden sind zurück,
+    dies Stellt die getrackten Personen dar"""
 
     """Liefert alle Tracks aus der Liste der Klasse zurück die als Activ mackiert worden sind zurück,
     dies Stellt die getrackten Personen dar"""
