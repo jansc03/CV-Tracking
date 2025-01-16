@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from scipy.optimize import linear_sum_assignment
+
 from kalman_filter import KalmanFilter
 
 class Tracker:
@@ -56,45 +58,106 @@ class Tracker:
     Das histogramm eines Tracks wird nur angepasst wenn die änderungen zum durchschnitts Histogramm nicht zu groß sind.
     (da sonst von einer Störung ausgegangen wird"""
 
-    def update_track(self, detections,detection_areas_histogram):
-        update_tracks = {}
-        for track_id, track in self.tracks.items():
-            track["lost"] += 1
-            if track["lost"] <= self.max_lost:
-                update_tracks[track_id] = track
+    def update_track(self, detections, detection_areas_histogram):
+        """
+        Aktualisiert die Tracks basierend auf Detektionen und Zuordnung per Hungarian Algorithmus.
+        Unübereinstimmende Detektionen werden separat verarbeitet, um potenzielle neue Tracks hinzuzufügen.
+        """
+        # Tracks als Liste
+        track_list = list(self.tracks.values())
+        track_ids = list(self.tracks.keys())
 
-        self.tracks = update_tracks
+        # Hungarian Algorithmus anwenden
+        matches, unmatched_tracks, unmatched_detections = self.associate_detections_to_tracks(
+            detections, detection_areas_histogram, track_list
+        )
 
-        for track_id, track in self.tracks.items():
-            possible = []
-            for det,det_area_hist in zip(detections,detection_areas_histogram):
-                if self.is_close_or_overlap(track["bbox"], det) or self.is_close_or_overlap(track["prediction"], det):
-                    cmp = self.compare_histogramm(det_area_hist,track)
-                    bundle = det[2]>det[3]/2
-                    if cmp > 0.6 or bundle:                  # Magic Number Wann eine Box als gleiche person erkannt wird
-                        possible.append((det,cmp,bundle,det_area_hist))
+        # Matches verarbeiten
+        for track_idx, detection_idx in matches:
+            track_id = track_ids[track_idx]
+            detection = detections[detection_idx]
+            detection_hist = detection_areas_histogram[detection_idx]
 
-            if len(possible) > 0:
-                pos = max(possible,key=lambda x: x[1])
-                det,cmp,bundle,det_hist = pos
-                track["bbox"] = det
-                track["lost"] = 0
-                track["stable_frames"] += 1
-                if not bundle and cmp > 0.75:                 # Magic Number Wann man Histogramm hinzufügt
-                    self.add_histogramm(det_hist, track)
-                if track["stable_frames"] >= self.activation_frames:
-                    track["active"] = True
-                if not bundle:
-                    i = detections.index(det)
-                    del detections[i]
-                    del detection_areas_histogram[i]
+            track = self.tracks[track_id]
+            track["bbox"] = detection
+            track["lost"] = 0
+            track["stable_frames"] += 1
 
+            # Histogramm hinzufügen, wenn Schwellenwert überschritten
+            if self.compare_histogramm(detection_hist, track) > 0.75:  # Magic Number
+                self.add_histogramm(detection_hist, track)
+
+            # Track aktivieren
+            if track["stable_frames"] >= self.activation_frames:
+                track["active"] = True
+
+        # Unmatched Tracks verarbeiten (als verloren markieren)
+        for track_idx in unmatched_tracks:
+            track_id = track_ids[track_idx]
+            self.tracks[track_id]["lost"] += 1
+
+        # Verlorene Tracks löschen
+        self.tracks = {
+            track_id: track
+            for track_id, track in self.tracks.items()
+            if track["lost"] <= self.max_lost
+        }
+
+        # Unmatched Detektionen verarbeiten (neue Tracks hinzufügen)
+        if len(self.tracks) < self.max_tracks and len(unmatched_detections) > 0:
+            # Finde eine hinzufügbare Detektion unter den Übrigen
+            to_add = self.get_addable_detection_id_from_leftover(
+                [detections[idx] for idx in unmatched_detections]
+            )
+            if to_add != -1:
+                # Hinzufügbare Detektion identifizieren und hinzufügen
+                actual_index = unmatched_detections[to_add]
+                self.add_track(detections[actual_index], detection_areas_histogram[actual_index])
+
+        # Vorhersagen für alle Tracks berechnen
+        for track in self.tracks.values():
             self.predict_future_bbox(track)
 
-        if len(self.tracks) < self.max_tracks and len(detections) > 0:
-            to_add = self.get_addable_detection_id_from_leftover(detections)
-            if to_add != -1:
-                self.add_track(detections[to_add], detection_areas_histogram[to_add])
+    """Ordnet Detektionen den bestehenden Tracks zu basierend auf Hungarian Algorithmus"""
+    def associate_detections_to_tracks(self,detections, detection_areas_histogram, tracks, cost_threshold=0.5):
+        if len(tracks) == 0 or len(detections) == 0:
+            return [], list(range(len(tracks))), list(range(len(detections)))
+
+        # Kostenmatrix berechnen
+        cost_matrix = np.zeros((len(tracks), len(detections)))
+
+        for t, track in enumerate(tracks):
+            for d, (detection, detection_hist) in enumerate(zip(detections, detection_areas_histogram)):
+                cost_matrix[t, d] = self.calculate_matching_value(track, detection, detection_hist)
+
+        # Hungarian Algorithmus anwenden
+        track_indices, detection_indices = linear_sum_assignment(cost_matrix)
+
+        matches = []
+        unmatched_tracks = list(range(len(tracks)))
+        unmatched_detections = list(range(len(detections)))
+
+        for t, d in zip(track_indices, detection_indices):
+            if cost_matrix[t, d] < cost_threshold:
+                matches.append((t, d))
+                unmatched_tracks.remove(t)
+                unmatched_detections.remove(d)
+
+        return matches, unmatched_tracks, unmatched_detections
+
+    def calculate_matching_value(self,track, detection, detection_hist, use_prediction_weight=1.5):
+
+        histogram_similarity = self.compare_histogramm(detection_hist, track)
+
+        bbox_overlap = self.is_close_or_overlap(track["bbox"], detection)
+        prediction_overlap = self.is_close_or_overlap(track["prediction"], detection)
+
+        cost = 1 - (
+                0.5 * histogram_similarity +  # Histogramm: 50%
+                0.25 * bbox_overlap +  # Bounding Box Überlappung: 25%
+                0.25 * use_prediction_weight * prediction_overlap  # Prediction Überlappung: 25% mit Gewichtung
+        )
+        return cost
 
     def get_addable_detection_id_from_leftover(self, detections):
         possible = []
