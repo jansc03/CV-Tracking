@@ -36,12 +36,12 @@ class Detector:
 
         for pp,pa in potentialParts:
             for cp,ca in contour:
-                if self.is_close_or_overlap(pp, cp):
+                if self.is_close_or_overlap(pp, cp,0,200):
                     merge = (np.array(pp), np.array(cp))
                     contour.append((self.merge_bounding_boxes(merge),pa+ca))
                     contour.remove((cp,ca))
                     break
-        potentialPerson = []
+
 
         for cp, ca in contour:
             for pp, pa in contour:
@@ -51,6 +51,8 @@ class Detector:
                     contour.remove((cp, ca))
                     contour.remove((pp, pa))
                     break
+
+        potentialPerson = []
 
 
         for cnt,cnt_area in contour:

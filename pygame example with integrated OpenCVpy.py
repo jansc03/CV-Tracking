@@ -64,7 +64,7 @@ last_collision_time = 0
 n = 1
 
 backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=2) #17: Phillip bleibt lange Id=3 alles andere ist katastrophe
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=3) #17: Phillip bleibt lange Id=3 alles andere ist katastrophe
                                                                                    #18: K.a. wie aber es läuft extrem gut
                                                                                    #19: Katastrophe
                                                                                    #20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
@@ -190,8 +190,10 @@ while running:
         frame_out = original_vid.copy()
         person_areas = detector.extract_person_areas(original_vid,background, people)
 
+        cv2.imshow("background", background)
+
         for x,y,w,h in people:
-            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 255, 0), 2)
+            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 255, 0), 4)
 
 
 

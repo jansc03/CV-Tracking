@@ -133,9 +133,9 @@ class Tracker:
             track_id = track_ids[track_idx]
             track = self.tracks[track_id]
 
-            if(track["in_group"]):
+            if(track["lost"]<2):
                 for det in detections:
-                    if (calculate_iou(track["group_bbox"],det) > 0.8):  # Überprüfen auf iou
+                    if (calculate_iou(track["group_bbox"],det) > 0.3):  # Überprüfen auf iou
                         track["group_bbox"] = det
                         track["lost"] = 0
                         track["in_group"] = True
@@ -170,7 +170,7 @@ class Tracker:
             self.predict_future_bbox(track)
 
     """Ordnet Detektionen den bestehenden Tracks zu basierend auf Hungarian Algorithmus"""
-    def associate_detections_to_tracks(self,detections, detection_areas_histogram, tracks, cost_threshold=0.4): #magic number
+    def associate_detections_to_tracks(self,detections, detection_areas_histogram, tracks, cost_threshold=0.29): #magic number
         if len(tracks) == 0 or len(detections) == 0:
             return [], list(range(len(tracks))), list(range(len(detections)))
 
@@ -201,19 +201,24 @@ class Tracker:
 
         return matches, unmatched_tracks, unmatched_detections
 
-    def calculate_matching_value(self,track, detection, detection_hist, use_prediction_weight=1.5):
+    def calculate_matching_value(self,track, detection, detection_hist):
 
         histogram_similarity = self.compare_histogramm(detection_hist, track)
 
-        bbox_overlap = calculate_iou(track["bbox"], detection)
-        prediction_overlap = calculate_iou(track["prediction"], detection)
+        bbox_overlap = self.is_close_or_overlap(track["bbox"], detection,0,0)
+        prediction_overlap = self.is_close_or_overlap(track["prediction"], detection,0,0)
         if(track["in_group"]):
             bbox_overlap = 0.5*self.is_close_or_overlap(track["group_bbox"], detection,0,0)
 
+        overlap = prediction_overlap
+        if(bbox_overlap > prediction_overlap):
+            overlap = bbox_overlap
+
+        print(histogram_similarity)
+
         cost = 1 - (
-                0.6 * histogram_similarity +  # Histogramm: 60%
-                0.20 * bbox_overlap +  # Bounding Box Überlappung: 20%
-                0.20 * use_prediction_weight * prediction_overlap  # Prediction Überlappung: 20% mit Gewichtung
+                0.7 * histogram_similarity +  # Histogramm: 70%
+                0.3 * overlap
         )
         return cost
 
@@ -297,7 +302,7 @@ class Tracker:
         lower_similarity = weighted_similarity(lower_hist_det, lower_hist_track, weights)
 
         # Kombiniere obere und untere Ähnlichkeit
-        return 0.8 * upper_similarity + 0.5 * lower_similarity
+        return 0.7 * upper_similarity + 0.3 * lower_similarity
 
     """Liefert alle Tracks aus der Liste der Klasse zurück die als Activ mackiert worden sind zurück,
     dies Stellt die getrackten Personen dar"""
