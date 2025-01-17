@@ -214,8 +214,6 @@ class Tracker:
         if(bbox_overlap > prediction_overlap):
             overlap = bbox_overlap
 
-        print(histogram_similarity)
-
         cost = 1 - (
                 0.7 * histogram_similarity +  # Histogramm: 70%
                 0.3 * overlap
