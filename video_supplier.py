@@ -51,7 +51,7 @@ class VideoSupplier:
     """Startet ein einzelnes Video Capture"""
     def getSingleVideo(self, vidNum=0):
         self.clear_caps()  # Schließt vorherige Videos
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(self.vids[vidNum])
         self.caps.append(cap)
 
     """Liefert mehrere Video Captures"""

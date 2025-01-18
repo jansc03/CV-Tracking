@@ -7,7 +7,7 @@ from kalman_filter import KalmanFilter
 from iou import calculate_iou
 
 class Tracker:
-    def __init__(self, max_lost=60, activation_frames=0, max_tracks=2, height_smoothing=20, smoothing_window=4):
+    def __init__(self, max_lost=60, activation_frames=0, max_tracks=5, height_smoothing=20, smoothing_window=4):
         self.next_id = 0
         self.tracks = {}
         self.max_lost = max_lost
