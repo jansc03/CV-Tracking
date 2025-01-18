@@ -40,6 +40,7 @@ clock = pygame.time.Clock()
 player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
 player2 = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
 bullet = Player.Projektil(screen_height=SCREEN_HEIGHT)
+bullet2 = Player.Projektil(screen_height=SCREEN_HEIGHT)
 
 moving_entities = []
 
@@ -98,7 +99,7 @@ def handle_bullet_firing():
     if current_time - last_fire_time >= fire_interval_ms:
         last_fire_time = current_time
         bullet.fire(player.rect.x, player.rect.y, player.rect.width)
-        bullet.fire(player2.rect.x, player2.rect.y, player2.rect.width)
+        bullet2.fire(player2.rect.x, player2.rect.y, player2.rect.width)
         print(player.rect.x, player.rect.y, player.rect.width)
 
 
@@ -107,7 +108,7 @@ def handle_ufo_collisions():
     global last_collision_time
     current_time = pygame.time.get_ticks()
     for moving_entity in moving_entities[:]:
-        if bullet.rect.colliderect(moving_entity.rect):
+        if bullet.rect.colliderect(moving_entity.rect) or bullet2.rect.colliderect(moving_entity.rect):
             if current_time - last_collision_time >= cooldown_duration:
                 print("Kollision erkannt!")
                 last_collision_time = current_time
@@ -133,6 +134,8 @@ def draw_game_objects():
     """Zeichnet alle Spielobjekte auf den Bildschirm."""
     bullet.update()
     bullet.draw(screen)
+    bullet2.update()
+    bullet2.draw(screen)
 
     for moving_entity in moving_entities:
         moving_entity.update()
@@ -233,9 +236,10 @@ while running:
                 x, y, w, h = track["bbox"]
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
             cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
-
-            """player.update_position(x, y, w, h)
-            player2.update_position(x, y, w, h)"""
+            if track_id == 1:
+                player.update_position(x, y, w, h)
+            else:
+                player2.update_position(x, y, w, h)
 
             """#IOU
             # Definiere den erweiterten Bereich für den YOLO-Tracker
@@ -276,7 +280,7 @@ while running:
         """
 
         'GAME'
-        """game_logic()"""
+        game_logic()
 
         # update screen
         pygame.display.update()

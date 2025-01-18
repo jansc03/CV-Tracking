@@ -7,7 +7,7 @@ from kalman_filter import KalmanFilter
 from iou import calculate_iou
 
 class Tracker:
-    def __init__(self, max_lost=60, activation_frames=0, max_tracks=3, height_smoothing=20, smoothing_window=4):
+    def __init__(self, max_lost=60, activation_frames=0, max_tracks=2, height_smoothing=20, smoothing_window=4):
         self.next_id = 0
         self.tracks = {}
         self.max_lost = max_lost
@@ -63,7 +63,6 @@ class Tracker:
     (da sonst von einer Störung ausgegangen wird"""
 
     def update_track(self, detections, detection_areas_histogram):
-
         wide_detections = []
         wide_detections_hist = []
         filtered_detections = []
