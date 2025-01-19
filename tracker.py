@@ -113,7 +113,7 @@ class Tracker:
                 track["active"] = True
 
         """Sollten Tracks nicht zugeordnet werden können wird geschaut ob sich in ihrer nähe eine Gruppe Befindet"""
-        for track_idx in unmatched_tracks:
+        for track_idx in unmatched_tracks[:]:
             track_id = track_ids[track_idx]
             track = self.tracks[track_id]
 
@@ -127,15 +127,16 @@ class Tracker:
                     unmatched_tracks.remove(track_idx)
                     break
 
-        """SOllten abschließend immernoch tracks nicht zugeordnet werden können wird hier nochmal geschaut ob dieser gerade in einer gruppe war
-         und wenn dies der Fall ist und nun an der Stelle ein Tracks ist wird vermutet das diese gruppe sich verkleinert hat/ einer vor den anderen gegangen ist"""
-        for track_idx in unmatched_tracks:
+        """SOllten abschließend immernoch tracks nicht zugeordnet werden können, wird hier nochmal geschaut ob dieser gerade erst verloren gegangen ist,
+         und wenn dies der Fall ist, schauen wir ob an dieser stelle eine detektion ist wenn dies der Fall ist gehen wir davon aus das der track noch dort ist"""
+        for track_idx in unmatched_tracks[:]:
             track_id = track_ids[track_idx]
             track = self.tracks[track_id]
 
             if(track["lost"]<2):
                 for det in detections:
-                    if (calculate_iou(track["group_bbox"],det) > 0.3):  # Überprüfen auf iou
+                    if ((calculate_iou(track["group_bbox"],det) > 0.4) or
+                        (calculate_iou(track["bbox"],det)>0.4)):  # Überprüfen auf iou
                         track["group_bbox"] = det
                         track["lost"] = 0
                         track["in_group"] = True
@@ -355,7 +356,7 @@ class Tracker:
      Sollte Im letzten frame keine Passende Person Detectiert worden sein (Track["Lost"]>0) wird die Letzte prediction weiter genutzt
      """
     def predict_future_bbox(self,track):
-        if(track["lost"] < 1):
+        if(track["lost"] < 1 and not track["in_group"]):
             track_bbox = track["bbox"]
 
             bbox_width = track_bbox[2]
@@ -400,7 +401,7 @@ class Tracker:
     Hierbei wird einfach nur die Distanz der zentren genutzt um eine Richtung zu errechnen
      und die neue Boundingbox in diese zu verschieben"""
     def simple_future_box_prediction(self,track):
-        if (track["lost"] < 1):
+        if (track["lost"] < 1 and track["in_group"]):
             track_bbox = track["bbox"]
         else:
             track_bbox = track["prediction"]
