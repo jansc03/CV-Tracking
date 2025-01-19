@@ -64,7 +64,7 @@ last_collision_time = 0
 n = 1
 
 backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=20) #17: Phillip bleibt lange Id=3 alles andere ist katastrophe
+backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=6) #17: Phillip bleibt lange Id=3 alles andere ist katastrophe
                                                                                    #18: K.a. wie aber es läuft extrem gut
                                                                                    #19: Katastrophe
                                                                                    #20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
