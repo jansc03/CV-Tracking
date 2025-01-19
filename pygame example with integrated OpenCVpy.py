@@ -16,6 +16,8 @@ import detector as dt
 import tracker as tr
 import entity
 import player as Player
+from dual_bs import DualBackgroundSubtraction
+
 #import iou
 #from yolo_tracker_integration import YOLOTracker
 
@@ -67,12 +69,11 @@ cooldown_duration = 1000
 last_collision_time = 0
 
 n = 1
-
-backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=22) #17: Phillip bleibt lange Id=3 alles andere ist katastrophe
+background_subtraction = DualBackgroundSubtraction()
+background_subtraction.init_video(vidNum=17) # 17: Phillip bleibt lange Id=3 alles andere ist katastrophe
                                                                                    #18: K.a. wie aber es läuft extrem gut
                                                                                    #19: Katastrophe
-                                                                                   #20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
+                                                                              #20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
 
 """
 # Initialize YOLO tracker
@@ -92,9 +93,6 @@ def handle_player_collisions():
                     print(f"Spieler {players.index(player) + 1} getroffen! Verbleibende Leben: {player.lives}")
                     moving_entities.remove(moving_entity)
 
-
-
-
 def handle_bullet_firing():
     """Feuert ein Projektil für jeden Spieler, wenn das Intervall überschritten wurde."""
     global last_fire_time
@@ -104,8 +102,6 @@ def handle_bullet_firing():
         for player, bullet in zip(players, bullets):
             bullet.fire(player.rect.x, player.rect.y, player.rect.width)
             print(player.rect.x, player.rect.y, player.rect.width)
-
-
 
 def handle_ufo_collisions():
     """Überprüft Kollisionen von UFOs mit den Projektilen aller Spieler."""
@@ -118,8 +114,6 @@ def handle_ufo_collisions():
                     print("Kollision erkannt!")
                     last_collision_time = current_time
                     moving_entities.remove(moving_entity)
-
-
 
 def spawn_entities():
     """Erstellt neue Entitäten, wenn keine vorhanden sind."""
@@ -187,19 +181,19 @@ while running:
 
     if not paused:
         #bilateral blur == slooooooooooooow
-        background,original_vid = backgroundSubtraction.getNextSingleBackground()
-        bgImg = cv2.GaussianBlur(background, (5, 5), 2)
-        mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, kernel, iterations=2)
-        background = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=2).astype(np.uint8)
+        # Hintergrundmaske abrufen
+        combined_mask, original_vid = background_subtraction.get_mask()
+        mask_eroded = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+        combined_mask = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=1).astype(np.uint8)
 
-        #cv2.imshow("Background", background)
+        cv2.imshow("combined_mask", combined_mask)
 
-        people,all_contours = detector.detect(background)
+        people,all_contours = detector.detect(combined_mask)
 
 
         """Alle Personen im Frame werden Detektiert"""
         frame_out = original_vid.copy()
-        person_areas = detector.extract_person_areas(original_vid,background, people)
+        person_areas = detector.extract_person_areas(original_vid,combined_mask, people)
 
         for x,y,w,h in people:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 255, 0), 4)
@@ -224,6 +218,8 @@ while running:
 
         #tracker
         custom_tracker.update_track(people,person_hist)
+        tracked_objects = [(x, y, w, h) for x, y, w, h in people]
+        background_subtraction.update_tracked_objects(tracked_objects)
         """
         # YOLO detection und tracking
         yolo_tracks = yolo_tracker.process_frame(original_vid)
@@ -305,6 +301,3 @@ print(final_results)
 """
 
 pygame.quit()
-backgroundSubtraction.closeAll()
-
-
