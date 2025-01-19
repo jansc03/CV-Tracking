@@ -63,7 +63,6 @@ class Tracker:
     (da sonst von einer Störung ausgegangen wird"""
 
     def update_track(self, detections, detection_areas_histogram):
-
         wide_detections = []
         wide_detections_hist = []
         filtered_detections = []

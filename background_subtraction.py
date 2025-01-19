@@ -23,19 +23,10 @@ class BackgroundSubtraction:
     backSubKNN.setNSamples(120)
     backSubKNN.setkNNSamples(7)
     backSubKNN.setShadowThreshold(60)
-    backSubCNT = cv2.bgsegm.createBackgroundSubtractorCNT(minPixelStability=10, useHistory=True,
-                                                          maxPixelStability=15 * 15)
-    backSubGMG = cv2.bgsegm.createBackgroundSubtractorGMG(initializationFrames=60, decisionThreshold=0.9)
-    backSubGSOC = cv2.bgsegm.createBackgroundSubtractorGSOC(mc=10, nSamples=10, replaceRate=0.005, propagationRate=0.01,
-                                                            hitsThreshold=32, alpha=0.01, beta=0.01,
-                                                            blinkingSupressionDecay=0.1,
-                                                            blinkingSupressionMultiplier=0.1,
-                                                            noiseRemovalThresholdFacBG=0.0004,
-                                                            noiseRemovalThresholdFacFG=0.008)
-    backSubLSBP = cv2.bgsegm.createBackgroundSubtractorLSBP(nSamples=10, mc=10)
+
 
     # Hintergrundsubtraktor-Liste
-    backSubtractor = [backSubMOG2, backSubKNN, backSubCNT, backSubGSOC, backSubGMG, backSubLSBP]
+    backSubtractor = [backSubMOG2, backSubKNN]
     method_names = ["MOG2", "KNN", "CNT", "GSOC"]
 
     # Globale Variablen
