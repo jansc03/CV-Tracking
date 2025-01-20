@@ -24,7 +24,18 @@ class VideoSupplier:
             "Vid/Eingang_2_Personen_viele_Personen_im_hg.mp4",  #17
             "Vid/Eingang_4_Personen_Polonaise.mp4",             #18
             "Vid/Eingang_mir_wird_schwindelig_huiiiiiii.mp4",   #19
-            "Vid/Eingang_Nacheinander.mp4",                     #20
+            "Vid/Eingang_Nacheinander.mp4",                     #20 ZEIGEN
+            "Vid/Session2",                                     #21
+            "Vid/Session2_2_Personen_hinderniss.mp4",           #22
+            "Vid/Session2_2_Personen_ueberlappen.mp4",          #23
+            "Vid/Session2_2_Personen_verdecken.mp4",            #24
+            "Vid/Session2_3_Personen_cross.mp4",                #25
+            "Vid/Session2_3_Personen_ueberlappen.mp4",          #26
+            "Vid/Session2_3_Personen_ueberlappen_v2.mp4",       #27
+            "Vid/Session2_3_Personen_wechseln.mp4",             #28
+            "Vid/Session2_4_Personen_ueberlappen.mp4",          #29
+            "Vid/Session2_4_Personen_ueberlappen (2).mp4",      #30
+            "Vid/",
         ]
 
         self.caps = []  # Liste der VideoCapture-Objekte

@@ -16,6 +16,8 @@ import detector as dt
 import tracker as tr
 import entity
 import player as Player
+from dual_bs import DualBackgroundSubtraction
+
 #import iou
 #from yolo_tracker_integration import YOLOTracker
 
@@ -33,14 +35,17 @@ pygame.init()
 # set display size and caption
 screen = pygame.display.set_mode(SCREEN)
 pygame.display.set_caption("Computer Vision Game")
+detector = dt.Detector()
+custom_tracker = tr.Tracker(max_lost=90)
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
+word = tr.Tracker()
 
 # init game clock
 fps = 30
 clock = pygame.time.Clock()
-player = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
-player2 = Player.Player(0,0, screen_w=SCREEN_HEIGHT)
-bullet = Player.Projektil(screen_height=SCREEN_HEIGHT)
-bullet2 = Player.Projektil(screen_height=SCREEN_HEIGHT)
+# Dynamische Spielererstellung basierend auf max_tracks
+players = [Player.Player(0, 0, screen_w=SCREEN_HEIGHT) for _ in range(custom_tracker.max_tracks)]
+bullets = [Player.Projektil(screen_height=SCREEN_HEIGHT) for _ in range(custom_tracker.max_tracks)]
 
 moving_entities = []
 
@@ -63,18 +68,11 @@ cooldown_duration = 1000
 last_collision_time = 0
 
 n = 1
-
-backgroundSubtraction = bs.BackgroundSubtraction()
-backgroundSubtraction.initBackgroundSubtractor(backSubNum=0,multi=False,vidNum=17)
-#17: Phillip bleibt lange Id=3 alles andere ist katastrophe
-#18: K.a. wie aber es läuft extrem gut
-#19: Katastrophe
-#20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
-
-detector = dt.Detector()
-custom_tracker = tr.Tracker(max_lost=90)
-kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
-word = tr.Tracker()
+background_subtraction = DualBackgroundSubtraction()
+background_subtraction.init_video(vidNum=20) # 17: Phillip bleibt lange Id=3 alles andere ist katastrophe
+                                                                                   #18: K.a. wie aber es läuft extrem gut
+                                                                                   #19: Katastrophe
+                                                                              #20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
 
 """
 # Initialize YOLO tracker
@@ -82,39 +80,41 @@ yolo_tracker = YOLOTracker(fps=fps)
 """
 
 def handle_player_collisions():
-    """Überprüft Kollisionen des Spielers mit beweglichen Entitäten."""
+    """Überprüft Kollisionen der Spieler mit beweglichen Entitäten."""
     global collision_check_timer
     current_time = pygame.time.get_ticks()
     if current_time - collision_check_timer >= collision_check_interval:
         collision_check_timer = current_time
         for moving_entity in moving_entities[:]:
-            if player.rect.colliderect(moving_entity.rect) or player2.rect.colliderect(moving_entity.rect):
-                player.lose_life()
-                print(f"Spieler getroffen! Verbleibende Leben: {player.lives}")
-                moving_entities.remove(moving_entity)
+            for player in players:
+                if player.rect.colliderect(moving_entity.rect):
+                    player.lose_life()
+                    print(f"Spieler {players.index(player) + 1} getroffen! Verbleibende Leben: {player.lives}")
+                    moving_entities.remove(moving_entity)
 
 
 def handle_bullet_firing():
-    """Feuert ein Projektil, wenn das Intervall überschritten wurde."""
+    """Feuert ein Projektil für jeden Spieler, wenn das Intervall überschritten wurde."""
     global last_fire_time
     current_time = pygame.time.get_ticks()
     if current_time - last_fire_time >= fire_interval_ms:
         last_fire_time = current_time
-        bullet.fire(player.rect.x, player.rect.y, player.rect.width)
-        bullet2.fire(player2.rect.x, player2.rect.y, player2.rect.width)
-        print(player.rect.x, player.rect.y, player.rect.width)
+        for player, bullet in zip(players, bullets):
+            bullet.fire(player.rect.x, player.rect.y, player.rect.width)
+            print(player.rect.x, player.rect.y, player.rect.width)
 
 
 def handle_ufo_collisions():
-    """Überprüft Kollisionen von UFOs mit dem Projektil."""
+    """Überprüft Kollisionen von UFOs mit den Projektilen aller Spieler."""
     global last_collision_time
     current_time = pygame.time.get_ticks()
     for moving_entity in moving_entities[:]:
-        if bullet.rect.colliderect(moving_entity.rect) or  bullet2.rect.colliderect(moving_entity.rect):
-            if current_time - last_collision_time >= cooldown_duration:
-                print("Kollision erkannt!")
-                last_collision_time = current_time
-                moving_entities.remove(moving_entity)
+        for bullet in bullets:
+            if bullet.rect.colliderect(moving_entity.rect):
+                if current_time - last_collision_time >= cooldown_duration:
+                    print("Kollision erkannt!")
+                    last_collision_time = current_time
+                    moving_entities.remove(moving_entity)
 
 
 def spawn_entities():
@@ -134,25 +134,24 @@ def spawn_entities():
 
 def draw_game_objects():
     """Zeichnet alle Spielobjekte auf den Bildschirm."""
-    bullet.update()
-    bullet.draw(screen)
-    bullet2.update()
-    bullet2.draw(screen)
+    for bullet in bullets:
+        bullet.update()
+        bullet.draw(screen)
 
     for moving_entity in moving_entities:
         moving_entity.update()
         moving_entity.draw(screen)
 
-    player.draw_lives(screen, player.lives)
-    player.draw(screen)
-    player2.draw(screen)
-
+    for player in players:
+        player.draw_lives(screen, player.lives)
+        player.draw(screen)
 
 def check_player_status():
-    """Überprüft, ob der Spieler noch lebt."""
-    if not player.is_alive():
-        print("Spieler 1 hat alle Leben verloren! Spiel beendet.")
-        return False
+    """Überprüft, ob ein Spieler noch lebt."""
+    for i, player in enumerate(players):
+        if not player.is_alive():
+            print(f"Spieler {i + 1} hat alle Leben verloren! Spiel beendet.")
+            return False
     return True
 
 
@@ -181,19 +180,16 @@ while running:
 
     if not paused:
         #bilateral blur == slooooooooooooow
-        background,original_vid = backgroundSubtraction.getNextSingleBackground()
-        bgImg = cv2.GaussianBlur(background, (5, 5), 2)
-        mask_eroded = cv2.morphologyEx(bgImg, cv2.MORPH_CLOSE, kernel, iterations=2)
-        background = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=2).astype(np.uint8)
-
-        #cv2.imshow("Background", background)
-
-        people,all_contours = detector.detect(background)
-
+        # Hintergrundmaske abrufen
+        combined_mask, original_vid = background_subtraction.get_mask()
+        mask_eroded = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
+        combined_mask = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=1).astype(np.uint8)
+        cv2.imshow("combined_mask", combined_mask)
+        people,all_contours = detector.detect(combined_mask)
 
         """Alle Personen im Frame werden Detektiert"""
         frame_out = original_vid.copy()
-        person_areas = detector.extract_person_areas(original_vid,background, people)
+        person_areas = detector.extract_person_areas(original_vid,combined_mask, people)
 
         for x,y,w,h in people:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 255, 0), 4)
@@ -218,6 +214,8 @@ while running:
 
         #tracker
         custom_tracker.update_track(people,person_hist)
+        tracked_objects = [(x, y, w, h) for x, y, w, h in people]
+        background_subtraction.update_tracked_objects(tracked_objects)
         """
         # YOLO detection und tracking
         yolo_tracks = yolo_tracker.process_frame(original_vid)
@@ -232,16 +230,18 @@ while running:
         for track_id, track in custom_tracker.get_active_tracks().items():
             if track["in_group"]:
                 x, y, w, h = track["group_bbox"]
-            elif (track["lost"] > 0):
+            elif track["lost"] > 0:
                 x, y, w, h = track["prediction"]
             else:
                 x, y, w, h = track["bbox"]
-            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
-            if track_id == 1:
-                player.update_position(x, y, w, h)
-            else:
-                player2.update_position(x, y, w, h)
+
+            # Boundingbox anzeigen
+            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (track["color"]), 2)
+            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (track["color"]), 2)
+
+            # Spielerposition aktualisieren (Track-ID zu Spieler-ID)
+            if track_id < len(players):  # Nur Spieler innerhalb der Begrenzung aktualisieren
+                players[track_id].update_position(x, y, w, h)
 
             """#IOU
             # Definiere den erweiterten Bereich für den YOLO-Tracker
@@ -282,7 +282,7 @@ while running:
         """
 
         'GAME'
-        game_logic()
+        """game_logic()"""
 
         # update screen
         pygame.display.update()
@@ -297,6 +297,3 @@ print(final_results)
 """
 
 pygame.quit()
-backgroundSubtraction.closeAll()
-
-
