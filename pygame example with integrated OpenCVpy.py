@@ -67,7 +67,7 @@ last_collision_time = 0
 
 n = 1
 background_subtraction = DualBackgroundSubtraction()
-background_subtraction.init_video(vidNum=17) # 17: Phillip bleibt lange Id=3 alles andere ist katastrophe
+background_subtraction.init_video(vidNum=20) # 17: Phillip bleibt lange Id=3 alles andere ist katastrophe
                                                                                    #18: K.a. wie aber es läuft extrem gut
                                                                                    #19: Katastrophe
                                                                               #20:Tracks die rechts aus den Bildschirm gehen tauchen links wieder auf
@@ -224,8 +224,8 @@ while running:
                 x, y, w, h = track["bbox"]
 
             # Boundingbox anzeigen
-            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            cv2.rectangle(frame_out, (x, y), (x + w, y + h), (track["color"]), 2)
+            cv2.putText(frame_out, f'ID: {track_id}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (track["color"]), 2)
 
             # Spielerposition aktualisieren (Track-ID zu Spieler-ID)
             if track_id < len(players):  # Nur Spieler innerhalb der Begrenzung aktualisieren

@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
+from PIL.ImagePalette import random
 from scipy.optimize import linear_sum_assignment
-
+from scipy.stats import randint
+import random
 from kalman_filter import KalmanFilter
 
 from iou import calculate_iou
@@ -20,7 +22,7 @@ class Tracker:
     """Die Tracker Klasse enthält eine Liste aller Tracks(bei Abgabe zwei ist dies maximal einer),
     In dieser Methode wird eine Boundingbox und ein Histogramm mitgegeben und daraus ein Track erstellt der dann zur
     Liste hinzugefügt werden kann"""
-    def add_track(self, bbox,hist):
+    def add_track(self, bbox,hist, color):
         track_id = self.next_id
         self.tracks[self.next_id] = {
             "bbox": tuple(map(int, bbox)),
@@ -33,7 +35,8 @@ class Tracker:
             "center_predicter":KalmanFilter(track_id),
             "prediction" : tuple([0,0,0,0]),
             "previous_center":tuple([0,0]),
-            "histogram":[hist]
+            "histogram":[hist],
+            "color":color
         }
         self.smoothing_buffers[track_id] = []
         self.next_id += 1
@@ -164,7 +167,8 @@ class Tracker:
             )
             if to_add != -1:
                 actual_index = unmatched_detections[to_add]
-                self.add_track(detections[actual_index], detection_areas_histogram[actual_index])
+                color = self.random_color()
+                self.add_track(detections[actual_index], detection_areas_histogram[actual_index],color)
 
         for track in self.tracks.values():
             self.predict_future_bbox(track)
@@ -436,3 +440,6 @@ class Tracker:
                 y2 + h2 < extended_bbox1[1] or  # bbox2 unterhalb von bbox1
                 y2 > extended_bbox1[1] + extended_bbox1[3]  # bbox2 oberhalb von bbox1
         )
+
+    def random_color(self):
+        return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
