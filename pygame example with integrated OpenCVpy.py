@@ -40,7 +40,6 @@ custom_tracker = tr.Tracker(max_lost=90)
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
 word = tr.Tracker()
 
-
 # init game clock
 fps = 30
 clock = pygame.time.Clock()
@@ -57,8 +56,6 @@ gameScore = 0
 # -- main loop
 running = True
 paused = False
-ksize=5
-blursize = 5 # nicht größer als 5 => zu langsam
 previous_frame = None
 
 collision_check_timer = 0
@@ -129,7 +126,6 @@ def spawn_entities():
             moving_entities.append(new_entity)
         n += 1
 
-
 def draw_game_objects():
     """Zeichnet alle Spielobjekte auf den Bildschirm."""
     for bullet in bullets:
@@ -144,8 +140,6 @@ def draw_game_objects():
         player.draw_lives(screen, player.lives)
         player.draw(screen)
 
-
-
 def check_player_status():
     """Überprüft, ob ein Spieler noch lebt."""
     for i, player in enumerate(players):
@@ -153,8 +147,6 @@ def check_player_status():
             print(f"Spieler {i + 1} hat alle Leben verloren! Spiel beendet.")
             return False
     return True
-
-
 
 # Hauptspiel-Logik
 def game_logic():
@@ -164,7 +156,6 @@ def game_logic():
     spawn_entities()
     draw_game_objects()
     return check_player_status()
-
 
 all_iou_values = []
 
@@ -185,11 +176,8 @@ while running:
         combined_mask, original_vid = background_subtraction.get_mask()
         mask_eroded = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
         combined_mask = cv2.morphologyEx(mask_eroded, cv2.MORPH_OPEN, kernel, iterations=1).astype(np.uint8)
-
         cv2.imshow("combined_mask", combined_mask)
-
         people,all_contours = detector.detect(combined_mask)
-
 
         """Alle Personen im Frame werden Detektiert"""
         frame_out = original_vid.copy()
@@ -198,19 +186,15 @@ while running:
         for x,y,w,h in people:
             cv2.rectangle(frame_out, (x, y), (x + w, y + h), (255, 255, 0), 4)
 
-
-
         """Histogramme für die Detektierten Personen werden erstellt"""
         person_hist = []
         for person,background in person_areas:
             person_hist.append(word.get_hist(person,background))
 
-
         """
         Zeichnet BBoxen
         for x,y,w,h in people:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 200), 5)
-
 
         for x,y,w,h in all_contours:
             frame_out = cv2.rectangle(original_vid, (x, y), (x + w, y + h), (200, 0, 0), 3)
@@ -263,7 +247,6 @@ while running:
                    track.box[2] <= extended_x2 and track.box[3] <= extended_y2
             ]
             
-             
             # Visualisiere die gefilterten YOLO-Tracker-Ergebnisse
             for track in filtered_yolo_tracks:
                 x1, y1, x2, y2 = map(int, track.box)
